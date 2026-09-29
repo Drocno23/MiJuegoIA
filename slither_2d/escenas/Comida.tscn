@@ -1,0 +1,16 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/comida.gd" id="1_comida"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_comida"]
+radius = 8.0
+
+[node name="Comida" type="Area2D"]
+z_index = -1
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("1_comida")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_comida")

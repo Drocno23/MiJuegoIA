@@ -1,0 +1,263 @@
+# 🐛 Slither 2D — Prototipo (Godot 4.7 / GDScript)
+
+Prototipo 2D tipo [slither.io](http://slither.io) dentro de un espacio "infinito":
+
+* La cabeza sigue suavemente el ratón y el cuerpo es una cadena de segmentos que
+  recorre exactamente el camino de la cabeza, con separación fija.
+* Al comer, el gusano suma puntos y añade un segmento al final de la cola.
+* Si la cabeza toca el cuerpo de **otro** gusano, ese gusano muere al instante
+  (vale para el jugador y para los bots).
+* Al morir, el cuerpo se convierte en comida, dejando un nodo de comida en la
+  posición **exacta** de cada segmento.
+* Sin ningún asset gráfico: todo se dibuja con `_draw()` (fácil de cambiar por sprites).
+
+---
+
+## ▶️ Cómo abrirlo
+
+1. Abre Godot 4.7 → **Importar** → selecciona esta carpeta
+   (`slither_2d/project.godot`).
+2. Pulsa **F5** (la escena principal ya está configurada: `escenas/Main.tscn`).
+3. Mueve el ratón para dirigir al gusano. Cuando mueras, **ESPACIO** o clic para reiniciar.
+
+> Este proyecto es independiente del proyecto Godot que hay en la raíz de este
+> repositorio: tiene su propio `project.godot`, así que se abre directamente
+> apuntando a la carpeta `slither_2d`.
+
+---
+
+## 📁 Estructura
+
+```
+slither_2d/
+├── project.godot
+├── icon.svg
+├── escenas/
+│   ├── Main.tscn          Escena principal (mundo + HUD)
+│   ├── Gusano.tscn        Gusano jugador (la cabeza es la raíz)
+│   ├── GusanoCPU.tscn     Escena HEREDADA de Gusano.tscn con el script de bot
+│   ├── Segmento.tscn      Un segmento del cuerpo
+│   └── Comida.tscn        Una bola de comida
+└── scripts/
+    ├── gusano.gd            ⭐ mecánicas 1, 2, 3 y 4 (movimiento, crecimiento, muerte, restos)
+    ├── cuerpo_segmento.gd   ⭐ un segmento del cuerpo
+    ├── comida.gd            ⭐ la comida
+    ├── gusano_cpu.gd        IA de los bots (hereda de Gusano)
+    ├── main.gd              mundo: spawnea comida/bots, HUD y reinicio
+    └── fondo.gd             cuadrícula infinita de fondo
+```
+
+---
+
+## 🧩 ¿A qué nodo se adjunta cada script?
+
+| Script | Nodo de Godot | Dónde |
+|---|---|---|
+| `gusano.gd` | **`Node2D`** (raíz de la escena) | `escenas/Gusano.tscn` |
+| `cuerpo_segmento.gd` | **`Area2D`** (raíz de la escena) + un `CollisionShape2D` con `CircleShape2D` como hijo | `escenas/Segmento.tscn` |
+| `comida.gd` | **`Area2D`** (raíz de la escena) + un `CollisionShape2D` con `CircleShape2D` como hijo | `escenas/Comida.tscn` |
+| `gusano_cpu.gd` | **`Node2D`** raíz de `GusanoCPU.tscn` (escena heredada de `Gusano.tscn`) | `escenas/GusanoCPU.tscn` |
+| `main.gd` | **`Node2D`** raíz | `escenas/Main.tscn` |
+| `fondo.gd` | **`Node2D`** hijo de Main | `escenas/Main.tscn` |
+
+Árbol de `Gusano.tscn`:
+
+```
+Gusano            -> Node2D   (gusano.gd)     ← la cabeza ES este nodo
+├── Cabeza        -> Area2D   (solo la forma de colisión de la cabeza)
+│   └── CollisionShape2D      (CircleShape2D, radio 12)
+└── Segmentos     -> Node2D   (contenedor vacío; aquí el script añade los segmentos)
+```
+
+> La cabeza es el propio `Node2D` raíz: por eso `global_position` del gusano
+> **es** la posición de la cabeza, y `Cabeza` (Area2D) solo aporta la forma de
+> colisión que detecta comida y cuerpos ajenos.
+
+---
+
+## 🔵🟢 Capas de colisión (¡lo más importante del proyecto!)
+
+En `Proyecto → Ajustes del proyecto → Layer Names → 2D Physics`:
+
+| Capa | Nombre | Quién la usa |
+|---|---|---|
+| 1 | `Cabeza` | El Area2D `Cabeza` de cada gusano (solo layer, nadie la detecta) |
+| 2 | `Cuerpo` | Cada segmento (`Segmento.tscn`) — es **detectable**, no detecta |
+| 3 | `Comida` | Cada comida (`Comida.tscn`) — es **detectable**, no detecta |
+
+| Nodo | collision_layer | collision_mask | monitoring | monitorable |
+|---|---|---|---|---|
+| `Cabeza` (Area2D) | 1 | **6** (capa 2 + capa 3) | ✅ ON | ❌ OFF |
+| `Segmento` (Area2D) | **2** | 0 | ❌ OFF | ✅ ON |
+| `Comida` (Area2D) | **4** | 0 | ❌ OFF | ✅ ON |
+
+Así solo las cabezas "escuchan" (una por gusano) y los 60 segmentos de cada
+gusano no gastan CPU detectando nada. Si añades una capa nueva, actualiza la
+`collision_mask` de `Cabeza` (los bits son potencias de 2: capa 2 = 2, capa 3 = 4).
+
+---
+
+## ⚙️ Cómo funciona cada mecánica
+
+### 1) Movimiento del jugador (`gusano.gd`)
+
+```gdscript
+func _direccion_deseada() -> Vector2:
+	return global_position.direction_to(get_global_mouse_position())
+
+func _girar(delta: float) -> void:
+	var deseada := _direccion_deseada()
+	var diferencia := angle_difference(direccion.angle(), deseada.angle())
+	var paso_maximo := velocidad_giro * delta
+	direccion = direccion.rotated(clampf(diferencia, -paso_maximo, paso_maximo))
+```
+
+El gusano avanza **siempre a la misma velocidad** y gira como máximo
+`velocidad_giro` radianes por segundo hacia el ratón: eso produce el giro suave
+característico (nunca gira en seco). `angle_difference()` es Godot 4 (4.2+).
+
+**El cuerpo:** la cabeza guarda su recorrido en `_ruta` (un punto cada 4 px) y
+cada segmento se coloca sobre ese camino a una distancia fija:
+
+```gdscript
+func _colocar_segmentos() -> void:
+	for i in _segmentos.size():
+		_segmentos[i].global_position = _punto_detras((float(i) + 1.0) * separacion)
+```
+
+Con esto el cuerpo sigue *exactamente* la huella de la cabeza y la separación
+nunca se deforma (a diferencia del típico "cada segmento persigue al anterior",
+que se "encoje" en las curvas).
+
+### 2) Crecimiento (`comida.gd` + `gusano.gd`)
+
+La comida es un `Area2D` en el grupo `comida`. La cabeza (Area2D con
+`monitoring = ON`) recibe la señal `area_entered`:
+
+```gdscript
+func _on_cabeza_area_entered(area: Area2D) -> void:
+	if area.is_in_group(Comida.GRUPO):
+		_comer(area as Comida)
+	elif area.is_in_group(CuerpoSegmento.GRUPO):
+		_chocar_con_cuerpo(area as CuerpoSegmento)
+
+func _comer(comida: Comida) -> void:
+	puntuacion += comida.valor          # suma puntos
+	crecer(comida.segmentos)            # añade segmento(s) al FINAL de la cola
+	puntuacion_cambiada.emit(puntuacion, longitud())
+	comida.consumir()                   # pop + queue_free()
+```
+
+`crecer()` añade el segmento nuevo al final del array `_segmentos` (o sea, la cola)
+y lo coloca en la ruta. La comida otorga `valor` puntos y `segmentos` segmentos.
+
+### 3) Muerte por choque contra otro cuerpo
+
+```gdscript
+func _chocar_con_cuerpo(segmento: CuerpoSegmento) -> void:
+	if _tiempo_inmunidad > 0.0:
+		return
+	var otro := segmento.dueno          # cada segmento sabe de qué gusano es
+	if otro == self or not is_instance_valid(otro):
+		return                          # tu propio cuerpo NO te mata
+	morir()
+```
+
+Es el mismo script para el jugador y para los bots. `_tiempo_inmunidad` (2 s)
+evita muertes absurdas justo al aparecer.
+
+### 4) Restos de comida al morir
+
+```gdscript
+func morir() -> void:
+	...
+	var posiciones := PackedVector2Array()
+	posiciones.append(global_position)                    # la cabeza
+	for segmento in _segmentos:
+		posiciones.append(segmento.global_position)       # cada segmento
+	murio.emit(posiciones)                                # avisa al mundo
+	visible = false
+	queue_free()
+```
+
+El gusano no sabe dónde vive la comida: **emite una señal** y `main.gd` la usa para
+crear una comida naranja (3 puntos) en cada posición exacta:
+
+```gdscript
+func _esparcir_restos(posiciones: PackedVector2Array) -> void:
+	for posicion in posiciones:
+		_aparecer_comida(posicion, 3, 9.0, COLOR_RESTOS)
+```
+
+---
+
+## 🤖 Bots (`gusano_cpu.gd`)
+
+`GusanoCPU.tscn` es una **escena heredada** de `Gusano.tscn` que solo cambia el
+script; el bot hereda todo el movimiento, el cuerpo, la muerte y los restos, y
+únicamente sobreescribe *hacia dónde quiere ir*:
+
+```gdscript
+func _direccion_deseada() -> Vector2:
+	return _direccion_ia
+```
+
+Su IA (toma una decisión cada 0.15 s, no en cada frame):
+
+1. Si se ha alejado más de `distancia_maxima_al_jugador` del jugador, vuelve hacia él
+   (el jugador está en el grupo `jugador`; si no, en un mundo infinito los bots
+   acabarían perdidos donde no hay comida).
+2. Si tiene el cuerpo de otro gusano a menos de `margen_peligro` (80 px), huye
+   mezclando el vector de huida con su dirección actual.
+3. Si no, persigue la comida más cercana dentro de `distancia_vision`.
+4. Si no ve nada, gira un poco al azar.
+
+---
+
+## 🔧 Ajustes rápidos (desde el inspector)
+
+* **Velocidad**: `Gusano → Movimiento → velocidad`, o `Main → Gusanos → velocidad_jugador`.
+* **Giro más o menos ágil**: `velocidad_giro` (rad/s). 6 es bastante ágil; 3 se siente "pesado".
+* **Cuerpo más largo**: `segmentos_iniciales` y `segmentos_maximos`.
+* **Cuerpo más apretado**: `separacion` (por defecto 15 px con radio 12).
+* **Más/menos comida y bots**: `Main → Comida/Gusanos`.
+* **Zoom de la cámara**: `Main → Camara → Zoom` (1.0 abre mucho campo de visión).
+
+---
+
+## 🎨 Cambiar el dibujo por sprites
+
+Los tres scripts dibujan círculos con `_draw()`. Si prefieres imágenes:
+
+1. Añade un `Sprite2D` (con tu textura) como hijo del `Area2D`/`Node2D`.
+2. Borra la función `_draw()` del script correspondiente.
+3. Mantén el `CollisionShape2D` con un `CircleShape2D` del radio que quieras.
+
+Para que la cabeza apunte hacia donde va (por ejemplo si usas un sprite con ojos),
+puedes hacer `rotation = direccion.angle()` en el `_physics_process`.
+
+---
+
+## ⚠️ Detalles de Godot 4 que se han tenido en cuenta
+
+* `angle_difference()`, `get_global_mouse_position()`, `queue_redraw()`, `create_tween()`,
+  `set_deferred()`, `await`, `@export_group`, `@onready` → todo API de Godot 4
+  (nada de `rotation_degrees` como setter, `set_process`, `YSort`, `get_tree().call_group("...", "func")`
+  ni otras cosas de Godot 3).
+* Las propiedades de los nodos se asignan **antes** de `add_child()` cuando el
+  script de ese nodo las aplica en `_ready()` (radio y color de los segmentos).
+* Las formas de colisión se **duplican** (`shape.duplicate()`) para que cada
+  instancia tenga el suyo; si no, todas compartirían el mismo recurso.
+* Cambiar `monitoring`/`monitorable` dentro de una señal de física se hace con
+  `set_deferred()`.
+
+---
+
+## 🚀 Ideas para seguir
+
+* Grosor decreciente del cuerpo (radio = `radio * lerp(1.0, 0.6, i/n)`).
+* Zona de peligro: que el borde de la pantalla avise cuando un bot se acerca.
+* Minimapa con los gusanos cercanos.
+* Power-ups (velocidad, imán de comida, cuerpo fantasma).
+* Sonido con `AudioStreamPlayer2D` al comer y al morir.
+* Multijugador real: sincronizar solo la cabeza y usar el mismo `_ruta` en los clientes.
