@@ -1,3 +1,4 @@
+class_name Mundo
 extends Node2D
 ## Gestor del mundo: crea la comida, al jugador y a los bots, y actualiza el HUD.
 ##

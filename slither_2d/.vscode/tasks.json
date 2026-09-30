@@ -70,6 +70,16 @@
       "presentation": { "reveal": "always", "panel": "shared", "clear": true },
       "problemMatcher": []
     },
+    {
+      "label": "Probar: mecánicas (headless)",
+      "detail": "Ejecuta las 7 comprobaciones de las mecánicas sin abrir ventana. Código de salida 0 = todo bien.",
+      "type": "shell",
+      "command": "${config:godotTools.editorPath.godot4}",
+      "args": ["--headless", "res://tests/PruebaMecanicas.tscn"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+      "problemMatcher": []
+    },
 
     // ----------------------------- GIT -------------------------------------
     {

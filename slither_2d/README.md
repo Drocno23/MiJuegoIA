@@ -30,6 +30,15 @@ Prototipo 2D tipo [slither.io](http://slither.io) dentro de un espacio "infinito
 > repositorio: tiene su propio `project.godot`, así que se abre directamente
 > apuntando a la carpeta `slither_2d`.
 
+### ✅ Comprobar que todo funciona
+
+Prueba automática de las 7 mecánicas (sin abrir ventana, 2 segundos):
+
+```bash
+cd slither_2d
+godot --headless res://tests/PruebaMecanicas.tscn   # código de salida: 0 = todo bien
+```
+
 ---
 
 ## 📁 Estructura
@@ -52,6 +61,9 @@ slither_2d/
 │   ├── main.gd              mundo: spawnea comida/bots, HUD y reinicio
 │   ├── dibujo.gd            utilidad de dibujo (círculos con borde suave)
 │   └── fondo.gd             cuadrícula infinita de fondo
+├── tests/
+│   ├── PruebaMecanicas.tscn  Escena de la prueba automática
+│   └── prueba_mecanicas.gd   Comprueba las 4 mecánicas en 7 pasos
 └── preview/               capturas simuladas del aspecto (no hacen falta para jugar)
     ├── aspecto.png
     ├── detalle_bordes.png

@@ -217,6 +217,7 @@ está recargado**. Y si cambias una escena en Godot, se guarda sola al pasar a V
 | `*.gd.uid`, `*.tscn.uid` | ✅ Sí | Referencias de Godot 4.4+ (se rompen si no van) |
 | `.vscode/` (settings, tasks, extensions) | ✅ Sí | Así las dos máquinas se comportan igual |
 | `.godot/` | ❌ No | Caché de importación, Godot la regenera. Ya está en `.gitignore` |
+| `tests/` (escena + script de prueba) | ✅ Sí | Prueba automática de las mecánicas: útil para todos |
 | `preview/render.py`, `preview/*.png` | ✅ Sí | Documentación visual (el juego no los necesita) |
 | `export_presets.cfg` | ✅ Sí (si exportas) | Configuración de exportación |
 
@@ -287,6 +288,7 @@ source ~/.zshrc
 | Deshacer cambios de un archivo | `git restore slither_2d/scripts/gusano.gd` | — |
 | Historial | `git log --oneline --graph -15` | `Git: historial` |
 | Traer / subir | `git pull --rebase` / `git push` | `Git: traer cambios` / `Git: subir` |
+| Probar las mecánicas | `godot --headless res://tests/PruebaMecanicas.tscn` | `Probar: mecánicas (headless)` |
 
 ### Si abres la RAÍZ del repo en VS Code
 
@@ -302,7 +304,80 @@ proyecto correcto, lo simple sigue siendo `code "$HOME/MiJuegoIA/slither_2d"`.
 
 ---
 
-## 9. Publicar en `main` (cuando quieras)
+## 9. Sincronizar y comprobar que todo está bien
+
+### 9.1 Traer lo último y verificar
+
+```bash
+cd ~/MiJuegoIA
+git pull --rebase
+
+git status --short --branch     # debe empezar por "## arena/01a0ef16-mijuegoia" y no listar nada más
+git log --oneline -8            # aquí debe salir el último commit del agente
+```
+
+Si `git status` te muestra archivos `.gd.uid` nuevos, es normal (los genera
+Godot): súbelos una vez con `git add -A && git commit -m "chore: .uid" && git push`.
+
+### 9.2 Prueba automática de las 7 mecánicas (1 comando)
+
+```bash
+cd ~/MiJuegoIA/slither_2d
+godot --headless res://tests/PruebaMecanicas.tscn
+echo "código de salida: $?"      # 0 = todo bien | 1 = hay fallos
+```
+
+Salida esperada (resumen):
+
+```
+===============================================================
+  PRUEBA AUTOMÁTICA — slither_2d
+  Godot 4.7.2.stable.official   |   /home/tu_usuario/MiJuegoIA/slither_2d/
+===============================================================
+  ✔  1) El mundo se monta
+        jugador: ok | bots: 7/7 | comidas: 150/150
+  ✔  2) Cuerpo: segmentos con separación fija
+        8 segmentos | separación máx. medida: 15.00 px (esperada: 15.0)
+  ✔  3) Comer suma puntos y alarga el cuerpo
+        puntos 0 -> 1 | longitud 9 -> 10
+  ✔  4) La comida se destruye al comerse
+  ✔  5) Tocar el propio cuerpo no mata
+  ✔  6) La cabeza muere al tocar el cuerpo de otro gusano
+  ✔  7) Restos: una comida por cada parte del cuerpo
+        +10 comidas (se esperaban 10) | comida en la posición exacta de la cabeza: sí
+---------------------------------------------------------------
+  RESULTADO: 7/7 comprobaciones OK   ✔  TODO BIEN
+===============================================================
+```
+
+Es la misma prueba que puedes lanzar desde VS Code con
+**F1 → `Tasks: Run Task` → `Probar: mecánicas (headless)`**.
+El código de salida (0/1) permite usarla también en un script de CI.
+
+### 9.3 Comprobación a mano en el juego (5 minutos)
+
+```bash
+cd ~/MiJuegoIA/slither_2d && godot        # o la tarea "Godot: jugar"
+```
+
+| # | Qué mirar | Qué debe pasar |
+|---|---|---|
+| 1 | Mueve el ratón | El gusano gira **suave** hacia el ratón (no da giros secos) y el cuerpo mantiene la separación, también en las curvas (no se "encoge") |
+| 2 | Pasa por encima de la comida amarilla | Desaparece con un "pop", suben **PUNTOS** y **LONGITUD**, y la bola nueva aparece al final de la cola |
+| 3 | Cruza delante de un bot | Si **su** cabeza toca **tu** cuerpo, el bot muere y deja comida **naranja** en su rastro |
+| 4 | Choca **tu** cabeza contra el cuerpo de un bot | Pantalla **"¡TE HAN COMIDO!"** con tus puntos y tu cuerpo convertido en comida naranja |
+| 5 | Pulsa ESPACIO o haz clic | Empieza una partida nueva (mundo limpio, puntos a 0) |
+| 6 | Mira los bordes de los círculos | Suaves, sin dientes de sierra |
+| 7 | Mira la consola | Sin errores ni avisos (el de MSAA 2D ya no debe aparecer) |
+
+### 9.4 Si algo falla
+
+Copia y pégame la salida completa del comando de 9.2 (o el error de la consola
+de Godot) y lo arreglo. Cuanto más texto de la consola, mejor.
+
+---
+
+## 10. Publicar en `main` (cuando quieras)
 
 Esta rama (`arena/01a0ef16-mijuegoia`) es la del trabajo en curso. Cuando esté
 lista para pasar a `main`:
