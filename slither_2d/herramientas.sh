@@ -162,17 +162,23 @@ cmd_importar() {
 cmd_probar() {
 	paso "Prueba automática de las mecánicas (headless)"
 	exigir_godot
-	local salida=0
-	if "$GODOT_BIN" --headless "$ESCENA_PRUEBA"; then
-		salida=0
-	else
-		salida=$?
-	fi
+
+	local registro salida
+	registro="$(mktemp)"
+	set +e
+	"$GODOT_BIN" --headless "$ESCENA_PRUEBA" 2>&1 | tee "$registro"
+	salida=${PIPESTATUS[0]}
+	set -e
+
+	local pasadas
+	pasadas="$(grep -c "✔" "$registro" || true)"
+	rm -f "$registro"
+
 	echo ""
 	if [ "$salida" -eq 0 ]; then
-		ok "${NEGRITA}TODO BIEN${FIN} — las 7 comprobaciones han pasado (código de salida 0)"
+		ok "${NEGRITA}TODO BIEN${FIN} — $pasadas comprobaciones OK (código de salida 0)"
 	else
-		error "HAY FALLOS (código de salida $salida). Copia la salida de arriba y pásala para arreglarlo."
+		error "HAY FALLOS (código de salida $salida). Pásame la salida de arriba y lo arreglo."
 	fi
 	return "$salida"
 }
@@ -202,7 +208,15 @@ cmd_subir() {
 		git add -A
 		git commit -m "$mensaje"
 	fi
-	git push
+
+	if ! git push; then
+		# Típico cuando yo (el agente) he subido commits mientras tanto:
+		# el push se rechaza porque el remoto tiene cosas que tú no tienes.
+		aviso "El push fue rechazado: en GitHub hay commits que aún no tienes."
+		echo "  Haciendo 'git pull --rebase' y reintentando el push..."
+		git pull --rebase
+		git push
+	fi
 	ok "Subido. Rama: $(git rev-parse --abbrev-ref HEAD)"
 }
 

@@ -45,6 +45,8 @@ const SCRIPTS_DEL_JUEGO := [
 
 var _total := 0
 var _fallos := 0
+var _murio := false
+var _posiciones_restos := PackedVector2Array()
 
 
 func _ready() -> void:
@@ -107,6 +109,13 @@ func _ejecutar() -> void:
 		await _limpiar(main)
 		return
 
+	# Congelamos los bots: así ninguna prueba depende de lo que decidan hacer
+	# (sin esto, un bot podía chocar con el jugador en mitad de la prueba).
+	for nodo in main.contenedor_gusanos.get_children():
+		if nodo is GusanoCPU:
+			(nodo as GusanoCPU).set_physics_process(false)
+	await _esperar_fisica(1)
+
 	# ------------------------------------------------- 2) Cuerpo con separación
 	var peor_separacion := 0.0
 	var anterior := gusano.global_position
@@ -148,6 +157,9 @@ func _ejecutar() -> void:
 		"el nodo de comida ya no existe"
 	)
 
+	# A partir de aquí dejamos al jugador quieto (posición fija = prueba estable).
+	gusano.set_physics_process(false)
+
 	# ---------------------------------------- 5) El propio cuerpo NO mata
 	gusano._chocar_con_cuerpo(gusano._segmentos[0])
 	_comprobar(
@@ -159,39 +171,53 @@ func _ejecutar() -> void:
 	# -------------------------------- 6 y 7) Muerte por otro cuerpo y restos
 	var otro := load(RUTA_GUSANO).instantiate() as Gusano
 	otro.segmentos_iniciales = 6
+	# IMPORTANTE: la posición se fija ANTES de add_child(). El gusano construye su
+	# cuerpo en _ready() a partir de su posición, así que si lo añadimos primero
+	# nacería en el origen... ¡encima del jugador, y lo mataría sin querer!
+	otro.position = gusano.global_position + Vector2(500.0, 0.0)
 	main.contenedor_gusanos.add_child(otro)
-	otro.global_position = gusano.global_position + Vector2(400.0, 0.0)
-	otro.mirar_hacia(PI)  # Mirando hacia el jugador, pero su cuerpo queda detrás.
+	otro.mirar_hacia(PI)  # Mira hacia el jugador, pero su cuerpo queda detrás.
+	otro.set_physics_process(false)
 	await _esperar_fisica(1)
 
-	# Congelamos los dos gusanos: así las posiciones no cambian durante la prueba
-	# y el resultado no depende del momento exacto en que se detecta el choque.
-	gusano.set_physics_process(false)
-	otro.set_physics_process(false)
+	# Espía de la señal: comprobamos la muerte por lo que EMITE el gusano, no
+	# leyendo un nodo que puede haberse liberado con queue_free().
+	_murio = false
+	_posiciones_restos = PackedVector2Array()
+	if not gusano.murio.is_connected(_on_gusano_murio_prueba):
+		gusano.murio.connect(_on_gusano_murio_prueba)
+
 	var posicion_muerte := gusano.global_position
-	# Colocamos un segmento del otro gusano justo encima de la cabeza del nuestro.
-	otro._segmentos[0].global_position = posicion_muerte
-	gusano._tiempo_inmunidad = 0.0  # Sin inmunidad de nacimiento.
 	var largo_al_morir := gusano.longitud()
 	var comidas_antes := main.contenedor_comida.get_child_count()
-	await _esperar_fisica(3)
+	# Colocamos un segmento del otro gusano justo encima de la cabeza del nuestro.
+	gusano._tiempo_inmunidad = 0.0  # Sin inmunidad de nacimiento.
+	otro._segmentos[0].global_position = posicion_muerte
+	await _esperar_fisica(4)
 
 	_comprobar(
 		"6) La cabeza muere al tocar el cuerpo de otro gusano",
-		gusano.muerto,
-		"el gusano que chocó murió" if gusano.muerto else "¡seguía vivo!"
+		_murio and not is_instance_valid(gusano) and is_instance_valid(otro) and not otro.muerto,
+		"señal 'murio' recibida: %s | jugador liberado: %s | el otro gusano sigue vivo: %s" % [
+			"sí" if _murio else "NO",
+			"sí" if not is_instance_valid(gusano) else "NO",
+			"sí" if is_instance_valid(otro) and not otro.muerto else "NO",
+		]
 	)
 
 	# Los restos se crean con call_deferred(), de ahí la espera extra.
 	await _esperar_fisica(2)
 	var comidas_despues := main.contenedor_comida.get_child_count()
+	var hay_comida_en_el_punto := _hay_comida_en(main, posicion_muerte)
 	_comprobar(
 		"7) Restos: una comida por cada parte del cuerpo",
 		comidas_despues - comidas_antes == largo_al_morir
-			and _hay_comida_en(main, posicion_muerte),
-		"+%d comidas (se esperaban %d) | comida en la posición exacta de la cabeza: %s" % [
-			comidas_despues - comidas_antes, largo_al_morir,
-			"sí" if _hay_comida_en(main, posicion_muerte) else "NO",
+			and _posiciones_restos.size() == largo_al_morir
+			and hay_comida_en_el_punto,
+		("+%d comidas (se esperaban %d) | posiciones en la señal: %d | "
+			+ "comida en la posición exacta de la cabeza: %s") % [
+			comidas_despues - comidas_antes, largo_al_morir, _posiciones_restos.size(),
+			"sí" if hay_comida_en_el_punto else "NO",
 		]
 	)
 
@@ -214,6 +240,12 @@ func _hay_comida_en(main: Mundo, punto: Vector2) -> bool:
 		if comida != null and comida.global_position.distance_to(punto) <= TOLERANCIA_RESTOS:
 			return true
 	return false
+
+
+## Guarda lo que emite el gusano al morir (se conecta en la comprobación 6).
+func _on_gusano_murio_prueba(posiciones: PackedVector2Array) -> void:
+	_murio = true
+	_posiciones_restos = posiciones
 
 
 func _esperar_fisica(frames: int) -> void:

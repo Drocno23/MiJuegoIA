@@ -243,7 +243,9 @@ está recargado**. Y si cambias una escena en Godot, se guarda sola al pasar a V
 
 1. **Una máquina a la vez.** Si editas en dos equipos sin subir/bajar, habrá conflicto.
 2. **`git pull --rebase` al empezar y antes de `git push`.** Si olvidas el segundo,
-   GitHub rechaza el push (`non-fast-forward`): haz `git pull --rebase` y reintenta.
+   GitHub rechaza el push (`non-fast-forward`). Con `./herramientas.sh subir` ya no
+   tienes que preocuparte: si el push es rechazado, hace el `pull --rebase` y
+   reintenta automáticamente. A mano sería `git pull --rebase && git push`.
 3. **Commits pequeños y frecuentes** (mejor 5 commits de una cosa que 1 de cinco).
 4. **Reparto de tareas**: los `.gd` en VS Code, los `.tscn` en Godot. Si tocas un
    `.tscn` a mano en VS Code, ábrelo después en Godot y guárdalo para que quede
@@ -272,6 +274,9 @@ está recargado**. Y si cambias una escena en Godot, se guarda sola al pasar a V
 | `git: dubious ownership` o permisos raros | Abriste VS Code como root. Solución en §2 (`chown` + `safe.directory`). |
 | `error: no se puede pull con rebase: Tienes cambios sin marcar` | Godot ha creado o re-guardado archivos (`.uid`, `.import`, `.tscn`, `project.godot`) y Git no deja hacer el pull. El script lo detecta y te da 3 salidas:<br>• **`.uid` / `.import` (recomendado)**: súbelos una vez, así dejan de estorbar para siempre → `./herramientas.sh subir "chore: archivos de Godot"`<br>• **Apartarlos y recuperarlos**: `./herramientas.sh sync --con-cambios` (o `./herramientas.sh todo --con-cambios` para el ciclo completo)<br>• **Descartarlos** (solo si son re-guardados, se regeneran solos): `git checkout -- . && git clean -fd` |
 | `bash: [herramientas.sh](http://herramientas.sh): No existe el fichero o el directorio` | No es un error de Linux: el nombre del archivo se convirtió en un **enlace de chat** al copiarlo. Escribe el comando a mano, sin corchetes ni paréntesis: `./herramientas.sh todo` |
+| Errores en el EDITOR de Godot o en VS Code que la prueba ya no da | Son **errores viejos en caché**: el editor guarda los scripts parseados y la lista de clases globales en `.godot/`. Solución: cierra y vuelve a abrir el editor de Godot (`Proyecto → Recargar proyecto actual`) y, en VS Code, `F1 → Godot Tools: Restart Language Server`. Si sigue igual: `rm -rf .godot && ./herramientas.sh importar`. Fíjate en la prueba automática: si su comprobación 0 dice que los 7 scripts cargan, tu código está bien. |
+| `Cannot infer the type of "X" variable because the value doesn't have a set type` | GDScript no puede deducir el tipo: pasa al recorrer listas sin tipar (`for x in [-1.0, 1.0]`). Solución: tipar la colección (`PackedFloat32Array([-1.0, 1.0])`) o anotar la variable (`var ojo: Vector2 = ...`). |
+| `ERROR: Can't change this state while flushing queries. Use call_deferred() or set_deferred() to change monitoring state instead.` | Se creó un nodo con forma de colisión (un segmento, una comida) **dentro** de un callback de física, como la señal `area_entered` al comer. Solución: crearlos en diferido (`crecer_diferido()` en `gusano.gd`, `_esparcir_restos.call_deferred()` en `main.gd`). Ya está resuelto; si reaparece al añadir código nuevo, usa el mismo patrón. |
 | `SCRIPT ERROR: Parse Error: Cannot find member "X" in base "Y"` | **Error real de GDScript**: ese método no existe en ese tipo (nos pasó con `push_front` en un `PackedVector2Array`, que solo tiene `insert`). No es un problema de tu instalación: hay que corregir el script. La prueba automática lo detecta en la comprobación 0 (antes incluso de montar el mundo). |
 | `ERROR: RID allocations ... were leaked at exit` | Aviso al cerrar: quedaban nodos vivos al salir. La prueba ya libera el mundo antes de terminar, así que no debería aparecer. |
 | Commiteé en `main` en vez de en la rama del prototipo | No pasa nada, el commit está a salvo. Lo que subiste a `main` se puede traer a la rama de trabajo con `git checkout main -- <archivo>` (así trajimos los `.uid`). Para seguir con lo actualizado, cámbiate de rama: `git fetch origin && git checkout arena/01a0ef16-mijuegoia && git pull --rebase`. Antes de commitear, mira siempre la rama: `git status --short --branch` |
@@ -378,7 +383,7 @@ git log --oneline -8            # aquí debe salir el último commit del agente
 Si `git status` te muestra archivos `.gd.uid` nuevos, es normal (los genera
 Godot): súbelos una vez con `git add -A && git commit -m "chore: .uid" && git push`.
 
-### 9.2 Prueba automática de las 7 mecánicas (1 comando)
+### 9.2 Prueba automática de las mecánicas (1 comando)
 
 ```bash
 cd ~/MiJuegoIA/slither_2d
@@ -407,10 +412,11 @@ Salida esperada (resumen):
   ✔  7) Restos: una comida por cada parte del cuerpo
         +10 comidas (se esperaban 10) | comida en la posición exacta de la cabeza: sí
 ---------------------------------------------------------------
-  RESULTADO: 7/7 comprobaciones OK   ✔  TODO BIEN
+  RESULTADO: 8/8 comprobaciones OK   ✔  TODO BIEN
 ===============================================================
 ```
 
+Son **8 comprobaciones**: la 0 (todos los scripts cargan) + las 7 de mecánicas.
 Es la misma prueba que puedes lanzar desde VS Code con
 **F1 → `Tasks: Run Task` → `Probar: mecánicas (headless)`**.
 El código de salida (0/1) permite usarla también en un script de CI.

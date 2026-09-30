@@ -194,6 +194,15 @@ func crecer(cantidad: int = 1) -> void:
 		_agregar_segmento()
 
 
+## Crecimiento SEGURO desde un callback de física (por ejemplo la señal
+## `area_entered` de la cabeza al comer). Crear nodos con formas de colisión
+## mientras el servidor de física está resolviendo consultas da el error
+## "Can't change this state while flushing queries", así que el segmento se
+## crea al final del frame con call_deferred(). El retardo es imperceptible.
+func crecer_diferido(cantidad: int = 1) -> void:
+	crecer.call_deferred(cantidad)
+
+
 func _on_cabeza_area_entered(area: Area2D) -> void:
 	if muerto:
 		return
@@ -207,7 +216,7 @@ func _comer(comida: Comida) -> void:
 	if not is_instance_valid(comida):
 		return
 	puntuacion += comida.valor
-	crecer(comida.segmentos)
+	crecer_diferido(comida.segmentos)  # Diferido: estamos dentro de la física.
 	puntuacion_cambiada.emit(puntuacion, longitud())
 	comida.consumir()
 
