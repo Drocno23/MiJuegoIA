@@ -1,0 +1,55 @@
+{
+  // ===========================================================================
+  //  Ajustes del proyecto slither_2d para VS Code
+  //  (este archivo se sube al repo, así que vale igual en todas tus máquinas)
+  // ===========================================================================
+
+  // ---------------------------------------------------------------------------
+  //  1) ¡CAMBIA ESTA RUTA! Es el ejecutable de Godot 4.7 en TU equipo.
+  //     Windows: suele ser algo como "C:/Godot/Godot_v4.7.2-stable_win64.exe"
+  //     Linux:   "/home/tu_usuario/godot/Godot_v4.7.2-stable_linux.x86_64"
+  //     macOS:   "/Applications/Godot.app/Contents/MacOS/Godot"
+  //  La usan tanto la extensión como las tareas (F1 -> "Tasks: Run Task").
+  // ---------------------------------------------------------------------------
+  "godotTools.editorPath.godot4": "C:/Godot/Godot_v4.7.2-stable_win64.exe",
+
+  // ---------------------------------------------------------------------------
+  //  2) Servidor de lenguaje (autocompletado, errores, ir a definición)
+  // ---------------------------------------------------------------------------
+  // headless = true  -> la extensión arranca su propio Godot sin ventana; NO
+  //                     hace falta tener el editor de Godot abierto.
+  // headless = false -> se conecta al editor de Godot que tengas abierto
+  //                     (más funciones, pero el editor debe estar abierto
+  //                     antes de abrir VS Code; si no, pulsa "Retry").
+  "godotTools.lsp.headless": true,
+  "godotTools.lsp.serverHost": "127.0.0.1",
+  "godotTools.lsp.serverPort": 6005,
+  "godotTools.lsp.autoReconnect.enabled": true,
+
+  // ---------------------------------------------------------------------------
+  //  3) GDScript: tabulaciones, como exige el lenguaje
+  //     (mezclar espacios y tabuladores es la causa nº1 de errores de parseo)
+  // ---------------------------------------------------------------------------
+  "[gdscript]": {
+    "editor.insertSpaces": false,
+    "editor.detectIndentation": false,
+    "editor.tabSize": 4,
+    "editor.trimAutoWhitespace": false
+  },
+
+  // ---------------------------------------------------------------------------
+  //  4) La carpeta .godot/ es la caché de importación: no se sube al repo y
+  //     no hace falta verla (Godot la regenera sola).
+  // ---------------------------------------------------------------------------
+  "files.exclude": {
+    "**/.godot": true
+  },
+  "search.exclude": {
+    "**/.godot": true
+  },
+
+  // Guardar siempre en UTF-8 y con salto de línea LF, como pide el .gitattributes
+  "files.encoding": "utf8",
+  "files.eol": "\n",
+  "files.trimTrailingWhitespace": false
+}

@@ -1,0 +1,10 @@
+{
+  // Extensiones recomendadas para este proyecto.
+  // VS Code te las ofrecerá al abrir la carpeta: "Install All".
+  "recommendations": [
+    // La oficial de Godot: GDScript, autocompletado, depurador y escenas
+    "geequlim.godot-tools",
+    // Respeta el .editorconfig del repo (UTF-8, etc.)
+    "EditorConfig.EditorConfig"
+  ]
+}

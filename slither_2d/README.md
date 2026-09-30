@@ -20,6 +20,12 @@ Prototipo 2D tipo [slither.io](http://slither.io) dentro de un espacio "infinito
 2. Pulsa **F5** (la escena principal ya está configurada: `escenas/Main.tscn`).
 3. Mueve el ratón para dirigir al gusano. Cuando mueras, **ESPACIO** o clic para reiniciar.
 
+> 🛠️ **¿Vas a editarlo desde VS Code y subir cambios a GitHub?**
+> Tienes la guía paso a paso, con los comandos y las tareas ya preparadas, en
+> **[COMO_TRABAJAR.md](COMO_TRABAJAR.md)**. Importante: abre la carpeta
+> `slither_2d` en VS Code (no la raíz del repo), porque en el repositorio hay
+> dos `project.godot` y la extensión de Godot se quedaría con el de la raíz.
+
 > Este proyecto es independiente del proyecto Godot que hay en la raíz de este
 > repositorio: tiene su propio `project.godot`, así que se abre directamente
 > apuntando a la carpeta `slither_2d`.

@@ -1,0 +1,122 @@
+{
+  // ===========================================================================
+  //  Tareas de VS Code para slither_2d
+  //  Cómo usarlas:  F1  ->  "Tasks: Run Task"  ->  elige la tarea
+  //  (o Ctrl+Shift+B para la tarea marcada como "build")
+  //
+  //  Las de Godot usan la ruta del ajuste godotTools.editorPath.godot4
+  //  (cámbiala en .vscode/settings.json y todas las tareas quedan al día).
+  // ===========================================================================
+  "version": "2.0.0",
+  "tasks": [
+    // ---------------------------- GODOT ------------------------------------
+    {
+      "label": "Godot: abrir el editor (-e)",
+      "detail": "Abre el editor de Godot con este proyecto",
+      "type": "shell",
+      "command": "${config:godotTools.editorPath.godot4}",
+      "args": ["-e"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Godot: jugar",
+      "detail": "Ejecuta el juego (equivale a F5 en Godot)",
+      "type": "shell",
+      "command": "${config:godotTools.editorPath.godot4}",
+      "args": [],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Godot: jugar con depurador (-d)",
+      "detail": "Ejecuta el juego con el depurador de línea de comandos",
+      "type": "shell",
+      "command": "${config:godotTools.editorPath.godot4}",
+      "args": ["-d"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Godot: importar recursos (--import)",
+      "detail": "Genera la carpeta .godot/ y los archivos .uid sin abrir ventana. Úsalo tras clonar o tras un pull que traiga archivos nuevos.",
+      "type": "shell",
+      "command": "${config:godotTools.editorPath.godot4}",
+      "args": ["--headless", "--import"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+
+    // ----------------------------- GIT -------------------------------------
+    {
+      "label": "Git: estado",
+      "detail": "Qué archivos han cambiado y en qué rama estás",
+      "type": "shell",
+      "command": "git",
+      "args": ["status", "--short", "--branch"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Git: ver cambios",
+      "detail": "Resumen de líneas modificadas",
+      "type": "shell",
+      "command": "git",
+      "args": ["diff", "--stat"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Git: traer cambios (pull --rebase)",
+      "detail": "Baja lo que haya en GitHub y recoloca tus commits encima. Hazlo SIEMPRE antes de empezar y antes de subir.",
+      "type": "shell",
+      "command": "git",
+      "args": ["pull", "--rebase"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Git: añadir todo (add -A)",
+      "detail": "Marca para subir TODOS los cambios, incluidos los archivos nuevos (.uid, escenas nuevas...).",
+      "type": "shell",
+      "command": "git",
+      "args": ["add", "-A"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Git: commit (pide el mensaje)",
+      "detail": "Guarda los cambios. OJO: -am solo incluye archivos YA conocidos; si has creado archivos nuevos, ejecuta antes 'Git: añadir todo'.",
+      "type": "shell",
+      "command": "git",
+      "args": ["commit", "-am", "${input:mensajeCommit}"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Git: subir (push)",
+      "detail": "Sube tus commits a GitHub",
+      "type": "shell",
+      "command": "git",
+      "args": ["push"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Git: historial",
+      "detail": "Últimos 15 commits en forma de grafo",
+      "type": "shell",
+      "command": "git",
+      "args": ["log", "--oneline", "--graph", "-15"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "mensajeCommit",
+      "type": "promptString",
+      "description": "Mensaje del commit (ej: agrego power-ups de velocidad)"
+    }
+  ]
+}
