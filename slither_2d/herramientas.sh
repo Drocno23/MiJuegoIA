@@ -7,8 +7,9 @@
 #         ./herramientas.sh            -> muestra la ayuda
 #
 #  Comandos:
-#    todo       Sincroniza con GitHub + importa recursos + prueba las mecánicas
+#    todo       Sincroniza con GitHub + importa recursos + comprueba + prueba
 #    sync       git pull --rebase (traer lo último de GitHub)
+#    comprobar  Compila TODOS los scripts con Godot (detecta errores de tipos)
 #    probar     Prueba automática de las 23 comprobaciones (headless, ~2 segundos)
 #    importar   Genera .godot/ y los .uid sin abrir ventana
 #    jugar      Ejecuta el juego
@@ -159,6 +160,35 @@ cmd_importar() {
 	fi
 }
 
+# Compila cada script con el PROPIO Godot (--check-only). Es la única forma de
+# detectar los errores de TIPOS (un `:=` que no puede deducir el tipo, un método
+# que no existe...), que un linter de sintaxis no ve y que solo aparecen al abrir
+# el juego. Tarda unos segundos y evita sustos.
+cmd_comprobar() {
+	paso "Comprobando que todos los scripts compilan (tipos incluidos)"
+	exigir_godot
+
+	local total=0 malos=0 archivo salida
+	for archivo in scripts/*.gd tests/*.gd; do
+		total=$((total + 1))
+		salida="$("$GODOT_BIN" --headless --check-only --script "res://$archivo" 2>&1 || true)"
+		if echo "$salida" | grep -qE "Parse Error|Compile Error|SCRIPT ERROR|Failed to load script"; then
+			malos=$((malos + 1))
+			error "  $archivo NO compila:"
+			echo "$salida" | grep -E "Parse Error|Compile Error|SCRIPT ERROR|Failed to load" \
+				| sed 's/^/        /'
+		fi
+	done
+
+	echo ""
+	if [ "$malos" -eq 0 ]; then
+		ok "${NEGRITA}Los $total scripts compilan${FIN} (sintaxis y tipos)"
+	else
+		error "$malos de $total scripts NO compilan. Copia y pega esto y lo arreglo."
+		return 1
+	fi
+}
+
 cmd_probar() {
 	paso "Prueba automática de las mecánicas (headless)"
 	exigir_godot
@@ -222,9 +252,10 @@ cmd_subir() {
 }
 
 cmd_todo() {
-	echo "${NEGRITA}=== Sincronizar + importar + probar ===${FIN}"
+	echo "${NEGRITA}=== Sincronizar + importar + comprobar + probar ===${FIN}"
 	cmd_sync "${1:-}"
 	cmd_importar
+	cmd_comprobar
 	cmd_probar
 	echo ""
 	ok "${NEGRITA}Todo listo.${FIN} Si quieres, ahora: ./herramientas.sh jugar"
@@ -234,13 +265,14 @@ cmd_ayuda() {
 	cat <<EOF
 ${NEGRITA}herramientas.sh${FIN} — atajos para slither_2d (terminal de VS Code)
 
-  ./herramientas.sh todo       Sincroniza + importa + prueba (empieza por aquí)
+  ./herramientas.sh todo       Sincroniza + importa + comprueba + prueba (empieza por aquí)
   ./herramientas.sh todo --con-cambios
                                Lo mismo, apartando los cambios sin guardar
   ./herramientas.sh sync       Traer lo último de GitHub (git pull --rebase)
   ./herramientas.sh sync --con-cambios
                                Lo mismo, pero apartando tus cambios sin guardar
                                (git stash -u) y devolviéndolos después
+  ./herramientas.sh comprobar  Compila todos los scripts (errores de tipos, ~8 s)
   ./herramientas.sh probar     Prueba automática (23 comprobaciones, ~2 s)
   ./herramientas.sh importar   Genera .godot/ y los .uid sin abrir ventana
   ./herramientas.sh jugar      Ejecuta el juego
@@ -257,8 +289,9 @@ EOF
 # ------------------------------- entrada -------------------------------------
 COMANDO="${1:-ayuda}"
 case "$COMANDO" in
-	todo)     shift || true; cmd_todo "${1:-}" ;;
-	probar)   cmd_probar ;;
+	todo)      shift || true; cmd_todo "${1:-}" ;;
+	comprobar) cmd_comprobar ;;
+	probar)    cmd_probar ;;
 	importar) cmd_importar ;;
 	jugar)    cmd_jugar ;;
 	editar)   cmd_editar ;;

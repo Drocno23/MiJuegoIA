@@ -72,7 +72,7 @@
     },
     {
       "label": "Probar: mecánicas (headless)",
-      "detail": "Ejecuta las 7 comprobaciones de las mecánicas sin abrir ventana. Código de salida 0 = todo bien.",
+      "detail": "Ejecuta las 23 comprobaciones (mecánicas, HUD, pantallas, ajustes y móvil) sin abrir ventana. Código de salida 0 = todo bien.",
       "type": "shell",
       "command": "${config:godotTools.editorPath.godot4}",
       "args": ["--headless", "res://tests/PruebaMecanicas.tscn"],
@@ -83,8 +83,18 @@
 
     // ------------------- PROYECTO (herramientas.sh) -------------------------
     {
-      "label": "Proyecto: TODO (sincronizar + importar + probar)",
-      "detail": "EMPIEZA POR AQUÍ: trae lo último de GitHub, importa recursos y ejecuta la prueba de las 7 mecánicas.",
+      "label": "Proyecto: comprobar que los scripts compilan",
+      "detail": "Compila cada script con Godot (--check-only): caza los errores de TIPOS que un linter de sintaxis no ve.",
+      "type": "shell",
+      "command": "bash",
+      "args": ["herramientas.sh", "comprobar"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Proyecto: TODO (sincronizar + importar + comprobar + probar)",
+      "detail": "EMPIEZA POR AQUÍ: trae lo último de GitHub, importa recursos, compila todos los scripts y ejecuta la prueba de las 23 comprobaciones.",
       "type": "shell",
       "command": "bash",
       "args": ["herramientas.sh", "todo"],

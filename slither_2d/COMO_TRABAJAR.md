@@ -275,7 +275,7 @@ está recargado**. Y si cambias una escena en Godot, se guarda sola al pasar a V
 | `error: no se puede pull con rebase: Tienes cambios sin marcar` | Godot ha creado o re-guardado archivos (`.uid`, `.import`, `.tscn`, `project.godot`) y Git no deja hacer el pull. El script lo detecta y te da 3 salidas:<br>• **`.uid` / `.import` (recomendado)**: súbelos una vez, así dejan de estorbar para siempre → `./herramientas.sh subir "chore: archivos de Godot"`<br>• **Apartarlos y recuperarlos**: `./herramientas.sh sync --con-cambios` (o `./herramientas.sh todo --con-cambios` para el ciclo completo)<br>• **Descartarlos** (solo si son re-guardados, se regeneran solos): `git checkout -- . && git clean -fd` |
 | `bash: [herramientas.sh](http://herramientas.sh): No existe el fichero o el directorio` | No es un error de Linux: el nombre del archivo se convirtió en un **enlace de chat** al copiarlo. Escribe el comando a mano, sin corchetes ni paréntesis: `./herramientas.sh todo` |
 | `Parse Error: Could not find type "X" in the current scope` (y en VS Code, "Could not find type X") | **Casi siempre es un error en el propio script X**, no en el que se queja. Busca antes en la consola la línea `Parse Error` de `scripts/x.gd`: si ese archivo no compila, la clase `X` no se registra y todos los que la usan fallan en cascada. Arregla el error de `x.gd`, y después `./herramientas.sh todo` (el `--import` vuelve a registrar las clases). Si sigue: `rm -rf .godot && ./herramientas.sh importar` y reinicia el *Language Server* de VS Code (`F1 → Godot Tools: Restart Language Server`). |
-| `Cannot infer the type of "algo" variable because the value doesn't have a set type` | Pasa cuando usas `:=` con un valor de tipo desconocido, típicamente sacado de un Array sin tipo o de un Dictionary (`var x := ["a","b"][i]`). Soluciones: `var x: String = ...` (tipo explícito) o, mejor, una función con `match` que devuelva el tipo. Ojo: `gdlint`/`gdparse` **no** detectan esto; solo lo ve el compilador de Godot. |
+| `Cannot infer the type of "algo" variable because the value doesn't have a set type` | Pasa cuando usas `:=` con un valor de tipo desconocido: sacado de un Array/Dictionary **sin tipar** (`var color := COLORES[i]`, `var x := datos["clave"]`), de un `get_meta()`, o de una función que no declara su `-> Tipo`. Soluciones: tipar la colección (`PackedColorArray([...])` en vez de `[...]`), anotar la variable (`var color: Color = ...`) o ponerle `-> Tipo` a la función. Ojo: `gdlint`/`gdparse` **no** detectan esto; para cazarlos todos de una vez: `./herramientas.sh comprobar`. |
 | Errores en el EDITOR de Godot o en VS Code que la prueba ya no da | Son **errores viejos en caché**: el editor guarda los scripts parseados y la lista de clases globales en `.godot/`. Solución: cierra y vuelve a abrir el editor de Godot (`Proyecto → Recargar proyecto actual`) y, en VS Code, `F1 → Godot Tools: Restart Language Server`. Si sigue igual: `rm -rf .godot && ./herramientas.sh importar`. Fíjate en la prueba automática: si su comprobación 0 dice que los 24 scripts cargan, tu código está bien. |
 | `Cannot infer the type of "X" variable because the value doesn't have a set type` | GDScript no puede deducir el tipo: pasa al recorrer listas sin tipar (`for x in [-1.0, 1.0]`). Solución: tipar la colección (`PackedFloat32Array([-1.0, 1.0])`) o anotar la variable (`var ojo: Vector2 = ...`). |
 | `ERROR: Can't change this state while flushing queries. Use call_deferred() or set_deferred() to change monitoring state instead.` | Se creó un nodo con forma de colisión (un segmento, una comida) **dentro** de un callback de física, como la señal `area_entered` al comer. Solución: crearlos en diferido (`crecer_diferido()` en `gusano.gd`, `_esparcir_restos.call_deferred()` en `main.gd`). Ya está resuelto; si reaparece al añadir código nuevo, usa el mismo patrón. |
@@ -356,10 +356,11 @@ Y el resto de atajos:
 
 | Comando | Qué hace |
 |---|---|
-| `./herramientas.sh todo` | `git pull --rebase` + `--import` + prueba (23 comprobaciones) |
+| `./herramientas.sh todo` | `git pull --rebase` + `--import` + comprobar + prueba (23 comprobaciones) |
 | `./herramientas.sh todo --con-cambios` | Lo mismo, apartando antes los cambios sin guardar |
 | `./herramientas.sh sync` | Traer lo último de GitHub (se niega si hay cambios sin guardar y te da 3 opciones) |
 | `./herramientas.sh sync --con-cambios` | Lo mismo, pero apartando tus cambios con `git stash -u` y devolviéndolos después (perfecto para los `.uid` y los re-guardados de Godot) |
+| `./herramientas.sh comprobar` | **Compila todos los scripts** con Godot (`--check-only`): caza los errores de tipos que un linter no ve |
 | `./herramientas.sh probar` | Prueba automática (también a mano: `godot --headless res://tests/PruebaMecanicas.tscn`) |
 | `./herramientas.sh importar` | Genera `.godot/` y los `.uid` sin abrir ventana |
 | `./herramientas.sh jugar` | Ejecuta el juego |
@@ -385,7 +386,35 @@ git log --oneline -8            # aquí debe salir el último commit del agente
 Si `git status` te muestra archivos `.gd.uid` nuevos, es normal (los genera
 Godot): súbelos una vez con `git add -A && git commit -m "chore: .uid" && git push`.
 
-### 9.2 Prueba automática de las mecánicas (1 comando)
+### 9.2 Antes de jugar: ¿compilan todos los scripts? (1 comando)
+
+```bash
+cd ~/Proyectos/MiJuegoIA/slither_2d
+./herramientas.sh comprobar
+```
+
+Compila **cada** script con el propio Godot (`--headless --check-only --script`),
+uno por uno, y te dice cuáles fallan y por qué. Es la comprobación que caza los
+errores de **tipos** (los que solo se ven al abrir el juego y no en un linter):
+
+```
+==> Comprobando que todos los scripts compilan (tipos incluidos)
+
+✔ Los 25 scripts compilan (sintaxis y tipos)
+```
+
+Si algo falla, sale el archivo, la línea y el motivo:
+
+```
+✘   scripts/fondo_menu.gd NO compila:
+        SCRIPT ERROR: Parse Error: Cannot infer the type of "color" variable ...
+```
+
+Ese caso concreto es el clásico: `var color := COLORES[indice]` con `COLORES` a
+`const COLORES := [...]` (un Array sin tipo). Se arregla tipando la colección
+(`PackedColorArray([...])`) o anotando la variable (`var color: Color = ...`).
+
+### 9.3 Prueba automática de las mecánicas (1 comando)
 
 ```bash
 cd ~/MiJuegoIA/slither_2d
@@ -465,7 +494,7 @@ El código de salida (0/1) permite usarla también en un script de CI.
 > cascada de errores difíciles de leer. Un linter solo ve la sintaxis; esto
 > ejecuta el motor de verdad.
 
-### 9.3 Comprobación a mano en el juego (5 minutos)
+### 9.4 Comprobación a mano en el juego (5 minutos)
 
 ```bash
 cd ~/MiJuegoIA/slither_2d && godot        # o la tarea "Godot: jugar"
@@ -504,14 +533,14 @@ cd ~/MiJuegoIA/slither_2d && godot        # o la tarea "Godot: jugar"
 | 28 | En partida, mantén pulsado el botón **TURBO** de abajo a la derecha | El gusano acelera mientras lo mantienes (en el móvil también vale un segundo dedo) |
 | 29 | Mira la consola | Sin errores ni avisos (el de MSAA 2D ya no debe aparecer) |
 
-### 9.4 Si algo falla
+### 9.5 Si algo falla
 
-Copia y pégame la salida completa del comando de 9.2 (o el error de la consola
+Copia y pégame la salida completa del comando de 9.3 (o el error de la consola
 de Godot) y lo arreglo. Cuanto más texto de la consola, mejor.
 
 ---
 
-### 9.5 Probarlo en el móvil (Android, en horizontal)
+### 9.6 Probarlo en el móvil (Android, en horizontal)
 
 El proyecto ya está configurado para el móvil, **no hay que tocar nada**:
 

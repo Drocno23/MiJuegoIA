@@ -55,7 +55,7 @@ static func guardar(cambios: Dictionary) -> void:
 		valores[clave] = cambios[clave]
 	var ajustes := ConfigFile.new()
 	for clave in valores.keys():
-		var seccion := SECCION_PANTALLA if clave in ["pantalla_completa", "mostrar_fps"] \
+		var seccion: String = SECCION_PANTALLA if clave in ["pantalla_completa", "mostrar_fps"] \
 			else SECCION
 		ajustes.set_value(seccion, clave, valores[clave])
 	ajustes.save(ruta)

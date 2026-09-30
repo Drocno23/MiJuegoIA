@@ -17,9 +17,12 @@ const SEPARACION := 16.0  ## Distancia entre bolitas.
 const RADIO := 13.0
 const RADIO_COLA := 9.0
 const ALFA := 0.30  ## Translúcidos: son ambiente, no protagonistas.
-const COLORES := [
+## Colores de los gusanos de adorno. Es un `PackedColorArray` (y no un `Array`)
+## porque indexarlo devuelve un `Color` de verdad: con un `Array` normal devuelve
+## `Variant` y GDScript no puede deducir el tipo en un `:=`.
+const COLORES := PackedColorArray([
 	Color("4be36a"), Color("00e5ff"), Color("ff7a29"), Color("c39bff"), Color("ffd45c"),
-]
+])
 
 var _tiempo := 0.0
 var _tonos := PackedFloat32Array()
@@ -65,8 +68,8 @@ func _posicion(indice: int, t: float, tamano: Vector2) -> Vector2:
 
 
 func _dibujar_gusano(indice: int, tamano: Vector2) -> void:
-	var color := COLORES[indice % COLORES.size()]
-	var color_cuerpo := color.darkened(0.15)
+	var color: Color = COLORES[indice % COLORES.size()]
+	var color_cuerpo: Color = color.darkened(0.15)
 	# Paso de tiempo entre bolita y bolita: la separación deseada entre 300 px/s
 	# (la velocidad aproximada con la que pasean los gusanos de adorno).
 	var paso := SEPARACION / 300.0

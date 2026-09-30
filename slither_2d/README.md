@@ -57,9 +57,18 @@ ratón):
 
 ### ✅ Comprobar que todo funciona
 
-Prueba automática de las **23 comprobaciones** (sin abrir ventana, unos
-segundos): primero que los scripts cargan, después las mecánicas una por una y,
-al final, las pantallas de menú, los ajustes y los controles táctiles.
+Primero, que **todos los scripts compilen** (tipos incluidos); después, la
+prueba automática de las **23 comprobaciones** (sin abrir ventana, unos segundos):
+que los scripts cargan, las mecánicas una por una y, al final, las pantallas de
+menú, los ajustes y los controles táctiles.
+
+```bash
+./herramientas.sh comprobar   # compila cada script con Godot (~8 s)
+```
+
+`comprobar` es la red de seguridad: detecta los errores de **tipos** (un `:=` que
+no puede deducir el tipo, un método que no existe...) que un linter de sintaxis no
+ve y que, si no, solo aparecen al abrir el juego con toda su cascada de errores.
 
 ```bash
 cd slither_2d
