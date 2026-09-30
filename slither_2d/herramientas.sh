@@ -171,7 +171,8 @@ cmd_probar() {
 	set -e
 
 	local pasadas
-	pasadas="$(grep -c "✔" "$registro" || true)"
+	# Cuenta solo las líneas de comprobación ("  ✔  3) Comer..."), no el resumen.
+	pasadas="$(grep -cE '^ *✔ +[0-9]+\)' "$registro" || true)"
 	rm -f "$registro"
 
 	echo ""
