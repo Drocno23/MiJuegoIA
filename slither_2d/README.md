@@ -36,8 +36,14 @@ Prueba automática de las 7 mecánicas (sin abrir ventana, 2 segundos):
 
 ```bash
 cd slither_2d
+bash herramientas.sh todo      # sincroniza + importa + prueba  (atajo recomendado)
+
+# o solo la prueba, a mano:
 godot --headless res://tests/PruebaMecanicas.tscn   # código de salida: 0 = todo bien
 ```
+
+`herramientas.sh` tiene más atajos: `probar`, `jugar`, `editar`, `estado`,
+`subir "mensaje"` y `todo`. Sin argumentos muestra la ayuda.
 
 ---
 
@@ -64,6 +70,8 @@ slither_2d/
 ├── tests/
 │   ├── PruebaMecanicas.tscn  Escena de la prueba automática
 │   └── prueba_mecanicas.gd   Comprueba las 4 mecánicas en 7 pasos
+├── herramientas.sh        Atajos de terminal (sync, probar, jugar, subir...)
+└── .vscode/               Ajustes y 18 tareas listas para VS Code
 └── preview/               capturas simuladas del aspecto (no hacen falta para jugar)
     ├── aspecto.png
     ├── detalle_bordes.png

@@ -81,6 +81,48 @@
       "problemMatcher": []
     },
 
+    // ------------------- PROYECTO (herramientas.sh) -------------------------
+    {
+      "label": "Proyecto: TODO (sincronizar + importar + probar)",
+      "detail": "EMPIEZA POR AQUÍ: trae lo último de GitHub, importa recursos y ejecuta la prueba de las 7 mecánicas.",
+      "type": "shell",
+      "command": "bash",
+      "args": ["herramientas.sh", "todo"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Proyecto: estado (rama + cambios + versión)",
+      "detail": "Muestra la rama, lo que has cambiado y la versión de Godot detectada",
+      "type": "shell",
+      "command": "bash",
+      "args": ["herramientas.sh", "estado"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Proyecto: subir cambios (add + commit + push)",
+      "detail": "Guarda TODO (incluidos archivos nuevos) con tu mensaje y lo sube a GitHub",
+      "type": "shell",
+      "command": "bash",
+      "args": ["herramientas.sh", "subir", "${input:mensajeCommit}"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Proyecto: ayuda (herramientas.sh)",
+      "detail": "Lista de atajos disponibles en el script",
+      "type": "shell",
+      "command": "bash",
+      "args": ["herramientas.sh"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+      "problemMatcher": []
+    },
+
     // ----------------------------- GIT -------------------------------------
     {
       "label": "Git: estado",

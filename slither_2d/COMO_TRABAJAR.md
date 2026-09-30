@@ -153,6 +153,8 @@ terminal**. Ya se abre **dentro de `slither_2d`** (lo dejé configurado en
 | Editar tu PATH/aliases | `~/.zshrc` si es zsh, `~/.bashrc` si es bash (`source` el archivo después) |
 | Ejecutar las tareas del proyecto | F1 → `Tasks: Run Task` (se ejecutan **en esa misma terminal**) |
 | Repetir la última tarea | F1 → `Tasks: Rerun Last Task` |
+| Sincronizar y probar todo de golpe | `bash herramientas.sh todo` (tarea `Proyecto: TODO`) |
+| Ver los atajos disponibles | `bash herramientas.sh` (tarea `Proyecto: ayuda`) |
 
 > ⚠️ **No abras VS Code como root** (`sudo code`). Los archivos quedarían
 > propiedad de root y Git fallaría con `dubious ownership` / permisos.
@@ -218,6 +220,7 @@ está recargado**. Y si cambias una escena en Godot, se guarda sola al pasar a V
 | `.vscode/` (settings, tasks, extensions) | ✅ Sí | Así las dos máquinas se comportan igual |
 | `.godot/` | ❌ No | Caché de importación, Godot la regenera. Ya está en `.gitignore` |
 | `tests/` (escena + script de prueba) | ✅ Sí | Prueba automática de las mecánicas: útil para todos |
+| `herramientas.sh` | ✅ Sí | Atajos de terminal para este proyecto (Linux) |
 | `preview/render.py`, `preview/*.png` | ✅ Sí | Documentación visual (el juego no los necesita) |
 | `export_presets.cfg` | ✅ Sí (si exportas) | Configuración de exportación |
 
@@ -288,7 +291,9 @@ source ~/.zshrc
 | Deshacer cambios de un archivo | `git restore slither_2d/scripts/gusano.gd` | — |
 | Historial | `git log --oneline --graph -15` | `Git: historial` |
 | Traer / subir | `git pull --rebase` / `git push` | `Git: traer cambios` / `Git: subir` |
+| Sincronizar + probar todo | `bash herramientas.sh todo` | `Proyecto: TODO` |
 | Probar las mecánicas | `godot --headless res://tests/PruebaMecanicas.tscn` | `Probar: mecánicas (headless)` |
+| Subir con un mensaje | `bash herramientas.sh subir "mensaje"` | `Proyecto: subir cambios` |
 
 ### Si abres la RAÍZ del repo en VS Code
 
@@ -305,6 +310,33 @@ proyecto correcto, lo simple sigue siendo `code "$HOME/MiJuegoIA/slither_2d"`.
 ---
 
 ## 9. Sincronizar y comprobar que todo está bien
+
+### 9.0 Versión corta: el script `herramientas.sh` (recomendado)
+
+Todo lo de esta sección en **un solo comando**, desde la terminal integrada de
+VS Code:
+
+```bash
+bash herramientas.sh todo        # sincroniza + importa + prueba (código 0 = todo bien)
+```
+
+Y el resto de atajos:
+
+| Comando | Qué hace |
+|---|---|
+| `./herramientas.sh todo` | `git pull --rebase` + `--import` + prueba de las 7 mecánicas |
+| `./herramientas.sh sync` | Traer lo último de GitHub |
+| `./herramientas.sh probar` | Prueba automática (también a mano: `godot --headless res://tests/PruebaMecanicas.tscn`) |
+| `./herramientas.sh importar` | Genera `.godot/` y los `.uid` sin abrir ventana |
+| `./herramientas.sh jugar` | Ejecuta el juego |
+| `./herramientas.sh editar` | Abre el editor de Godot |
+| `./herramientas.sh estado` | Rama, cambios pendientes y versión de Godot |
+| `./herramientas.sh subir "mensaje"` | `git add -A` + commit + push |
+| `./herramientas.sh` | Ayuda |
+
+También están como tareas de VS Code (F1 → `Tasks: Run Task`), en el grupo
+**`Proyecto: ...`**. Si Godot no está en el PATH:
+`GODOT=/ruta/a/godot ./herramientas.sh probar`.
 
 ### 9.1 Traer lo último y verificar
 
