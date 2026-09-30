@@ -1,11 +1,14 @@
-# 🛠️ Trabajar con VS Code + Godot por comandos (sin líos de sincronización)
+# 🛠️ Trabajar con VS Code + Godot en Kali Linux por comandos (sin líos de sincronización)
 
-Guía corta y práctica para editar este prototipo desde **VS Code**, abrirlo en
-**Godot 4.7** y mantener todo sincronizado con GitHub **usando comandos**.
+Guía para editar este prototipo desde **VS Code** (o desde la **terminal de VS
+Code**), abrirlo en **Godot 4.7** y mantenerlo sincronizado con GitHub **usando
+comandos**.
 
 > 🎯 La idea: **una sola fuente de verdad (GitHub)**, comandos cortos y siempre
-> `pull --rebase` antes de empezar. Así nunca hay dos versiones del proyecto
+> `git pull --rebase` antes de empezar. Así nunca hay dos versiones del proyecto
 > peleándose.
+> 🐧 Todo está escrito para **Linux (Kali/Debian)**; al final hay notas por si
+> algún día lo abres en Windows/macOS.
 
 ---
 
@@ -22,108 +25,191 @@ TU PC  ──►  VS Code (editas scripts .gd)  ──►  Godot (editas escenas
 
 ---
 
-## 1. Instalación (una sola vez por máquina)
+## 1. Instalación en Kali Linux (una sola vez)
+
+### 1.1 Requisitos
+
+Kali ya trae lo necesario, pero por si acaso:
 
 ```bash
-# 1.1 Clona el repositorio (si aún no lo tienes)
-git clone https://github.com/Drocno23/MiJuegoIA.git
-cd MiJuegoIA
+sudo apt update && sudo apt install -y wget unzip git
+whoami && echo "$HOME" && uname -m      # tu usuario, tu carpeta y tu arquitectura
+```
 
-# 1.2 Ponte en la rama del prototipo y trae lo último
+Si `uname -m` dice `x86_64` usa el paquete **x86_64**; si dice `aarch64` usa
+**arm64** (Kali en Raspberry/ARM).
+
+### 1.2 Descargar Godot 4.7
+
+> ⚠️ El Godot de los repositorios de Kali/Debian suele ser una versión antigua.
+> Para este proyecto (etiqueta `4.7` en `project.godot`) usa el binario oficial.
+
+```bash
+mkdir -p "$HOME/Godot" && cd "$HOME/Godot"
+
+# x86_64 (lo normal en un PC):
+wget https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+
+# (solo si tu uname -m dijo aarch64, usa esta en su lugar):
+# wget https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.arm64.zip
+
+unzip -o Godot_v4.7.2-stable_linux.x86_64.zip
+chmod +x Godot_v4.7.2-stable_linux.x86_64
+./Godot_v4.7.2-stable_linux.x86_64 --version     # debe imprimir: 4.7.2.stable.official
+```
+
+*(También puedes bajarlo desde https://godotengine.org/download/linux/ — es el
+mismo archivo.)*
+
+### 1.3 Ponerlo en el PATH con un symlink (recomendado)
+
+Así el comando se llama siempre `godot`, no tienes que tocar `.zshrc`/`.bashrc`
+y **la ruta de VS Code nunca cambia** aunque actualices de versión:
+
+```bash
+sudo ln -sf "$HOME/Godot/Godot_v4.7.2-stable_linux.x86_64" /usr/local/bin/godot
+godot --version                                  # 4.7.2.stable.official ✅
+```
+
+`/usr/local/bin` ya está en el PATH, así que funciona en la terminal de Kali,
+en la terminal integrada de VS Code y en las tareas del proyecto.
+
+> ¿Prefieres no usar `sudo`? Entonces copia el binario a `~/.local/bin/` (asegúrate
+> de que está en tu PATH) y pon esa ruta completa en `.vscode/settings.json`.
+
+### 1.4 Clonar el repositorio y ponerse en la rama
+
+```bash
+git clone https://github.com/Drocno23/MiJuegoIA.git "$HOME/MiJuegoIA"
+cd "$HOME/MiJuegoIA"
 git checkout arena/01a0ef16-mijuegoia
 git pull --rebase
+```
 
-# 1.3 Instala las extensiones de VS Code desde la terminal
+### 1.5 Extensiones de VS Code (desde la terminal)
+
+```bash
 code --install-extension geequlim.godot-tools
 code --install-extension EditorConfig.EditorConfig
 ```
 
-**Abre SIEMPRE la carpeta `slither_2d`, no la raíz del repo:**
+### 1.6 Abrir la carpeta correcta en VS Code
 
 ```bash
-code slither_2d
+code "$HOME/MiJuegoIA/slither_2d"
 ```
 
-> ⚠️ **¿Por qué `slither_2d` y no la raíz?** Porque en este repositorio hay **dos**
-> `project.godot` (el de la raíz y `slither_2d/project.godot`), y la extensión de
-> Godot, cuando encuentra varios, se queda con el de la ruta más corta
-> (el de la raíz). Resultado: autocompletado y `res://` apuntando al proyecto
-> equivocado. Abriendo `slither_2d` no hay ambigüedad posible.
-> Git sigue funcionando igual desde la subcarpeta (detecta el repo de arriba).
+> ⚠️ **Abre `slither_2d`, NO la raíz del repo.** Hay dos `project.godot` (el de
+> la raíz y `slither_2d/project.godot`) y la extensión de Godot, cuando encuentra
+> varios, se queda con el de la ruta más corta (mira `get_project_dir()` en
+> `src/utils/godot_utils.ts` del plugin). Abriendo `slither_2d` no hay ambigüedad.
+> Git sigue funcionando igual desde la subcarpeta: detecta el repo de arriba.
 
-Después:
+Después revisa `.vscode/settings.json`:
 
-1. Abre `.vscode/settings.json` y **cambia la ruta de Godot** a la tuya:
-   ```jsonc
-   "godotTools.editorPath.godot4": "C:/Godot/Godot_v4.7.2-stable_win64.exe"
-   ```
-2. En VS Code: **F1 → `Tasks: Run Task` → `Godot: importar recursos (--import)`**
-   (o simplemente abre el editor con `Godot: abrir el editor (-e)`).
-   Esto genera la carpeta `.godot/` y los archivos `.uid`.
+```jsonc
+"godotTools.editorPath.godot4": "/usr/local/bin/godot"   // ✅ ya configurado así
+```
 
-### ⚠️ Los primeros `.uid` hay que subirlos (una sola vez)
+Si usaste otra ruta, cámbiala aquí. **Debe ser una ruta absoluta** (escribir
+`godot` a secas no vale) y apuntar a un **Godot 4.x**: la extensión ejecuta el
+binario y comprueba la versión; si no coincide te pedirá elegir otro.
 
-Godot 4.4+ crea un archivo `.uid` junto a cada script/escena. **Se deben subir al
-repo** (lo dice la propia documentación de Godot: si no, las referencias se
-rompen al clonar en otra máquina). Tras el primer `--import` verás archivos
-nuevos: es normal y hay que commitearlos.
+### 1.7 Primer arranque y subida de los `.uid`
 
 ```bash
-git status                 # verás los .uid nuevos
+code "$HOME/MiJuegoIA/slither_2d"
+```
+En VS Code: **F1 → `Tasks: Run Task` → `Godot: importar recursos (--import)`**.
+Eso genera la carpeta `.godot/` y los archivos `.uid`.
+
+> ⚠️ **Los `.uid` SÍ se suben al repo** (Godot 4.4+): son las referencias del
+> proyecto. Si no van al repo, al clonar en otra máquina Godot avisa y puede
+> perder referencias. Tras el primer `--import`:
+
+```bash
+git status                 # verás los .uid nuevos: es normal
 git add -A
 git commit -m "chore: agrega archivos .uid generados por Godot 4.7"
 git push
 ```
 
-> `*.uid` **no** debe ir nunca al `.gitignore`. En cambio `.godot/` **sí** está
-> ignorada (es caché que Godot regenera sola).
+Y recuerda: `*.uid` **nunca** al `.gitignore`; `.godot/` **sí** está ignorada
+(es caché que Godot regenera sola).
 
 ---
 
-## 2. El ciclo diario (5 comandos)
+## 2. Todo desde la terminal de VS Code
+
+Abre la terminal integrada con **Ctrl + `** (la tecla del acento grave, la de
+la derecha de la P en teclados en español) o en el menú **Terminal → Nueva
+terminal**. Ya se abre **dentro de `slither_2d`** (lo dejé configurado en
+`settings.json` con `terminal.integrated.cwd`).
+
+| Cosa | Cómo |
+|---|---|
+| Cambiar de shell (bash/zsh) | F1 → `Terminal: Select Default Profile` |
+| Saber tu shell | `echo $SHELL` |
+| Editar tu PATH/aliases | `~/.zshrc` si es zsh, `~/.bashrc` si es bash (`source` el archivo después) |
+| Ejecutar las tareas del proyecto | F1 → `Tasks: Run Task` (se ejecutan **en esa misma terminal**) |
+| Repetir la última tarea | F1 → `Tasks: Rerun Last Task` |
+
+> ⚠️ **No abras VS Code como root** (`sudo code`). Los archivos quedarían
+> propiedad de root y Git fallaría con `dubious ownership` / permisos.
+> Si ya te pasó, se arregla así:
+> ```bash
+> sudo chown -R "$USER:$USER" "$HOME/MiJuegoIA"
+> git config --global --add safe.directory "$HOME/MiJuegoIA"
+> ```
+
+---
+
+## 3. El ciclo diario (4 comandos, en la terminal de VS Code)
 
 ```bash
 # 1) Antes de empezar: trae lo último y ponlo debajo de lo tuyo
 git pull --rebase
 
-# 2) ... edita en VS Code y/o en Godot ...
+# 2) ... edita en VS Code y/o juega/edita escenas en Godot ...
 
-# 3) Mira qué has tocado (y en qué rama estás)
+# 3) Mira qué has tocado y en qué rama estás
 git status --short --branch
 
-# 4) Guarda el cambio (si creaste archivos nuevos, antes: git add -A)
-git add -A
-git commit -m "feat: agrego power-up de velocidad"
-
-# 5) Súbelo
-git push
+# 4) Guarda y sube
+git add -A && git commit -m "feat: agrego power-up de velocidad" && git push
 ```
 
-En VS Code todo esto está en **F1 → `Tasks: Run Task`** (las tareas
-`Git: ...`), así no tienes ni que recordar los argumentos.
-
-Si estoy yo (el agente) subiendo cambios a esta rama, tú solo necesitas el
-paso 1: `git pull --rebase`.
+En VS Code estos pasos están como tareas (`Git: ...`), así no recuerdas los
+argumentos. Si estoy yo (el agente) subiendo cambios a esta rama, tú solo
+necesitas el paso 1: `git pull --rebase`.
 
 ---
 
-## 3. Cómo se hablan VS Code y Godot
+## 4. Cómo se hablan VS Code y Godot
 
 | Sentido | Qué hacer |
 |---|---|
 | **Godot → VS Code** (doble clic en un script dentro de Godot) | `Editor → Ajustes del editor → Text Editor → External`: `Use External Editor` ✅, `Exec Path` = `code`, y en el desplegable de `Exec Flags` elige el preset **Visual Studio Code** (`--goto {file}:{line}:{col}`) |
 | **VS Code → Godot** (que Godot vea tus cambios al volver) | `Editor → Ajustes del editor → Text Editor → Behavior → Files` → **Auto Reload Scripts on External Change** ✅ |
 | Que no se te olvide guardar escenas | `Ajustes del editor → Interface → Editor` → **Save on Focus Loss** ✅ (guarda al cambiar de ventana, justo cuando te vas a VS Code) |
-| Que importe recursos nuevos solos | Mismo sitio → **Import Resources When Unfocused** ✅ |
-| Autocompletado de GDScript en VS Code | Ya configurado en `.vscode/settings.json` (servidor LSP en el puerto 6005) |
+| Que importe recursos nuevos | Mismo sitio → **Import Resources When Unfocused** ✅ |
+| Autocompletado de GDScript | Ya configurado en `.vscode/settings.json` (LSP en el puerto 6005, modo headless) |
 
-Con esos 3 ajustes, el flujo es: **escribes en VS Code → vuelves a la ventana de
-Godot → ya está recargado**. Y si cambias una escena en Godot, se guarda sola al
-pasar a VS Code.
+Con eso el flujo es: **escribes en VS Code → vuelves a la ventana de Godot → ya
+está recargado**. Y si cambias una escena en Godot, se guarda sola al pasar a VS Code.
+
+### Godot en español
+
+* Interfaz: `Ajustes del editor → Interface → Editor → Language` → **Español**.
+* O arráncalo con el idioma forzado (tarea `Godot: abrir el editor en español`):
+  ```bash
+  godot -l es -e
+  ```
+* Los mensajes de error de GDScript salen en inglés; eso no se traduce.
 
 ---
 
-## 4. ¿Qué se sube y qué no?
+## 5. ¿Qué se sube y qué no?
 
 | Archivo | ¿Al repo? | Por qué |
 |---|---|---|
@@ -131,23 +217,23 @@ pasar a VS Code.
 | `*.gd.uid`, `*.tscn.uid` | ✅ Sí | Referencias de Godot 4.4+ (se rompen si no van) |
 | `.vscode/` (settings, tasks, extensions) | ✅ Sí | Así las dos máquinas se comportan igual |
 | `.godot/` | ❌ No | Caché de importación, Godot la regenera. Ya está en `.gitignore` |
-| `preview/render.py`, `preview/*.png` | ✅ Sí | Documentación visual del prototipo (no los necesita el juego) |
+| `preview/render.py`, `preview/*.png` | ✅ Sí | Documentación visual (el juego no los necesita) |
 | `export_presets.cfg` | ✅ Sí (si exportas) | Configuración de exportación |
 
 ---
 
-## 5. Reglas de oro para no tener conflictos
+## 6. Reglas de oro para no tener conflictos
 
 1. **Una máquina a la vez.** Si editas en dos equipos sin subir/bajar, habrá conflicto.
 2. **`git pull --rebase` al empezar y antes de `git push`.** Si olvidas el segundo,
-   GitHub rechazará el push (`non-fast-forward`): haz `git pull --rebase` y reintenta.
+   GitHub rechaza el push (`non-fast-forward`): haz `git pull --rebase` y reintenta.
 3. **Commits pequeños y frecuentes** (mejor 5 commits de una cosa que 1 de cinco).
-4. **Reparto de tareas**: los scripts `.gd` en VS Code, las escenas `.tscn` en Godot.
-   Si tocas un `.tscn` a mano en VS Code, ábrelo después en Godot y guárdalo para
-   que quede con el formato del editor.
+4. **Reparto de tareas**: los `.gd` en VS Code, los `.tscn` en Godot. Si tocas un
+   `.tscn` a mano en VS Code, ábrelo después en Godot y guárdalo para que quede
+   con el formato del editor.
 5. **No toques la carpeta `.godot/`** (ni la copies entre máquinas).
-6. Si aparece un conflicto en un `.tscn` (son difíciles de fusionar a mano):
-   quédate con una de las dos versiones y rehaz el otro cambio en el editor.
+6. Si hay conflicto en un `.tscn` (difíciles de fusionar a mano): quédate con una
+   versión y rehaz el otro cambio en el editor.
    ```bash
    git checkout --ours   slither_2d/escenas/Main.tscn   # o --theirs
    git add slither_2d/escenas/Main.tscn
@@ -156,48 +242,67 @@ pasar a VS Code.
 
 ---
 
-## 6. Problemas típicos y solución
+## 7. Problemas típicos (y solución)
 
 | Síntoma | Causa y solución |
 |---|---|
-| En VS Code no hay autocompletado | 1) La ruta de Godot en `.vscode/settings.json` está mal. 2) Asegúrate con **F1 → `Godot Tools: Start Language Server`** y mira la esquina inferior derecha. 3) Si usas `"godotTools.lsp.headless": false`, el editor de Godot debe estar abierto **antes** que VS Code (o pulsa *Retry*). |
-| Godot no ve mis cambios de script | Vuelve a la ventana de Godot (recarga al enfocar). Si no, cierra y reabre el editor. Revisa que tienes `Auto Reload Scripts on External Change` activado. |
-| Tras un `pull` Godot se queja de recursos | Ejecuta **F1 → `Tasks: Run Task` → `Godot: importar recursos (--import)`**. |
+| VS Code pide elegir el ejecutable de Godot, o avisa de *"wrong version"* | La ruta no apunta a un Godot 4.x. Comprueba con la tarea `Godot: comprobar versión` (debe decir `4.7.x`) o con `godot --version`. |
+| En VS Code no hay autocompletado | 1) Ruta mal en `.vscode/settings.json`. 2) F1 → `Godot Tools: Restart Language Server`. 3) En la barra inferior derecha verás el estado del LSP. |
+| Godot no ve mis cambios de script | Vuelve a la ventana de Godot (recarga al enfocar). Revisa `Auto Reload Scripts on External Change`. |
+| `godot: command not found` en la terminal integrada | Falta el symlink (o `~/.local/bin` no está en el PATH). Rehaz §1.3 y **reinicia VS Code** para que herede el PATH nuevo. |
+| Warnings de `inotify` / "too many open files" / Godot vigilando demasiados archivos | Sube el límite de Kali (y reinicia sesión): `echo fs.inotify.max_user_watches=524288 \| sudo tee -a /etc/sysctl.conf && sudo sysctl -p`. También ayuda que `.godot/` esté excluida del vigilante (ya está en `settings.json`). |
+| El juego no abre ventana (o sale en negro) | Comprueba driver/pantalla: `godot --rendering-driver opengl3` y, si usas Wayland, `godot --display-driver wayland` (con X11, `--display-driver x11`). El proyecto ya usa *GL Compatibility*, el más compatible. |
+| `git: dubious ownership` o permisos raros | Abriste VS Code como root. Solución en §2 (`chown` + `safe.directory`). |
 | `error: failed to push some refs` | Te falta `git pull --rebase` antes de subir. |
-| Aparecen archivos nuevos raros (`.uid`, `.godot/`) en `git status` | Los `.uid` se commitean; `.godot/` no debería aparecer (si aparece, revisa el `.gitignore` de la raíz del repo). |
-| El juego no arranca desde VS Code | Comprueba la ruta de Godot y ejecuta la tarea `Godot: jugar` (debe decir algo como `Godot Engine v4.7.2.stable`). |
-| Aviso `render_target_set_msaa: 2D MSAA is not yet supported for GLES3` | Ya está resuelto: se quitó `msaa_2d` del `project.godot` (ver el README). |
+| Aparecen `.uid` o `.godot/` nuevos en `git status` | Los `.uid` se commitean; `.godot/` no debería aparecer (si aparece, revisa el `.gitignore`). |
+| Tras un `pull` Godot se queja de recursos | Tarea `Godot: importar recursos (--import)`. |
+| Aviso `render_target_set_msaa: 2D MSAA is not yet supported for GLES3` | Ya está resuelto (se quitó `msaa_2d` del `project.godot`; ver el README). |
 
 ---
 
-## 7. Atajos útiles
+## 8. Atajos y utilidades en Linux
 
-| Quiero... | Comando (terminal) | Tarea de VS Code |
+```bash
+# Abrir el editor del prototipo desde cualquier carpeta
+godot --path "$HOME/MiJuegoIA/slither_2d" -e
+
+# Jugar directamente
+godot --path "$HOME/MiJuegoIA/slither_2d"
+
+# Regenerar .godot/ y .uid sin abrir ventana
+godot --headless --path "$HOME/MiJuegoIA/slither_2d" --import
+
+# Ver qué versión tienes y dónde está
+godot --version && which godot && ls -l "$(which godot)"
+
+# Aliases cómodos (añádelos a ~/.zshrc o ~/.bashrc)
+echo 'alias slither="godot --path $HOME/MiJuegoIA/slither_2d"'          >> ~/.zshrc
+echo 'alias slither-edit="godot --path $HOME/MiJuegoIA/slither_2d" -e"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+| Quiero... | Comando | Tarea de VS Code |
 |---|---|---|
-| Abrir el editor de Godot | `godot -e` (dentro de `slither_2d`) | `Godot: abrir el editor (-e)` |
-| Jugar | `godot` | `Godot: jugar` |
-| Regenerar `.godot/` | `godot --headless --import` | `Godot: importar recursos (--import)` |
-| Ver la rama y los cambios | `git status --short --branch` | `Git: estado` |
+| Ver rama y cambios | `git status --short --branch` | `Git: estado` |
 | Deshacer cambios de un archivo | `git restore slither_2d/scripts/gusano.gd` | — |
-| Ver el historial | `git log --oneline --graph -15` | `Git: historial` |
+| Historial | `git log --oneline --graph -15` | `Git: historial` |
+| Traer / subir | `git pull --rebase` / `git push` | `Git: traer cambios` / `Git: subir` |
 
 ### Si abres la RAÍZ del repo en VS Code
 
-Es posible, pero entonces la extensión de Godot apuntará al `project.godot` de la
-raíz (el proyecto viejo). En ese caso trabaja con la ruta explícita:
+Funciona, pero la extensión de Godot apuntará al `project.godot` de la raíz. Usa
+la ruta explícita con `--path` (ver arriba). Para tener autocompletado del
+proyecto correcto, lo simple sigue siendo `code "$HOME/MiJuegoIA/slither_2d"`.
 
-```bash
-godot --path slither_2d -e      # abrir el editor del prototipo
-godot --path slither_2d         # jugar
-godot --headless --path slither_2d --import
-```
+### Notas para Windows / macOS (por si algún día cambias de equipo)
 
-…y para tener autocompletado del proyecto correcto, lo más simple sigue siendo
-`code slither_2d`.
+* Windows: `godotTools.editorPath.godot4` = `"C:/Godot/Godot_v4.7.2-stable_win64.exe"`.
+* macOS: `"/Applications/Godot.app/Contents/MacOS/Godot"`.
+* Todo lo demás de esta guía (Git, tareas, `.uid`) es idéntico.
 
 ---
 
-## 8. Publicar en `main` (cuando quieras)
+## 9. Publicar en `main` (cuando quieras)
 
 Esta rama (`arena/01a0ef16-mijuegoia`) es la del trabajo en curso. Cuando esté
 lista para pasar a `main`:

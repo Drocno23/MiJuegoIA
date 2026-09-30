@@ -1,8 +1,8 @@
 {
   // ===========================================================================
-  //  Tareas de VS Code para slither_2d
+  //  Tareas de VS Code para slither_2d  (Linux)
   //  Cómo usarlas:  F1  ->  "Tasks: Run Task"  ->  elige la tarea
-  //  (o Ctrl+Shift+B para la tarea marcada como "build")
+  //  Se ejecutan en la TERMINAL INTEGRADA de VS Code, con el proyecto como cwd.
   //
   //  Las de Godot usan la ruta del ajuste godotTools.editorPath.godot4
   //  (cámbiala en .vscode/settings.json y todas las tareas quedan al día).
@@ -17,6 +17,17 @@
       "command": "${config:godotTools.editorPath.godot4}",
       "args": ["-e"],
       "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Godot: abrir el editor en español (-e -l es)",
+      "detail": "Igual que la anterior, forzando la interfaz en español",
+      "type": "shell",
+      "command": "${config:godotTools.editorPath.godot4}",
+      "args": ["-l", "es", "-e"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
       "problemMatcher": []
     },
     {
@@ -26,6 +37,7 @@
       "command": "${config:godotTools.editorPath.godot4}",
       "args": [],
       "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
       "problemMatcher": []
     },
     {
@@ -35,6 +47,7 @@
       "command": "${config:godotTools.editorPath.godot4}",
       "args": ["-d"],
       "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
       "problemMatcher": []
     },
     {
@@ -44,6 +57,17 @@
       "command": "${config:godotTools.editorPath.godot4}",
       "args": ["--headless", "--import"],
       "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Godot: comprobar versión (--version)",
+      "detail": "Muestra la versión del ejecutable configurado. Debe decir 4.7.x",
+      "type": "shell",
+      "command": "${config:godotTools.editorPath.godot4}",
+      "args": ["--version"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
       "problemMatcher": []
     },
 
@@ -55,6 +79,7 @@
       "command": "git",
       "args": ["status", "--short", "--branch"],
       "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
       "problemMatcher": []
     },
     {
@@ -64,6 +89,7 @@
       "command": "git",
       "args": ["diff", "--stat"],
       "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
       "problemMatcher": []
     },
     {
@@ -73,6 +99,7 @@
       "command": "git",
       "args": ["pull", "--rebase"],
       "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
       "problemMatcher": []
     },
     {
@@ -82,6 +109,7 @@
       "command": "git",
       "args": ["add", "-A"],
       "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
       "problemMatcher": []
     },
     {
@@ -91,6 +119,7 @@
       "command": "git",
       "args": ["commit", "-am", "${input:mensajeCommit}"],
       "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
       "problemMatcher": []
     },
     {
@@ -100,6 +129,7 @@
       "command": "git",
       "args": ["push"],
       "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
       "problemMatcher": []
     },
     {
@@ -109,6 +139,7 @@
       "command": "git",
       "args": ["log", "--oneline", "--graph", "-15"],
       "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
       "problemMatcher": []
     }
   ],
