@@ -86,6 +86,11 @@ const MAX_PASOS_FRAME := 8  ## Límite de seguridad al muestrear el camino.
 var puntuacion: int = 0
 var muerto: bool = false
 var direccion: Vector2 = Vector2.RIGHT  ## Dirección actual de avance de la cabeza.
+## Punto al que apunta el gusano en el MÓVIL. Lo pone `main.gd` con la posición del
+## dedo (en coordenadas del mundo); con `usa_objetivo_tactil = false` se ignora y el
+## gusano vuelve a seguir el ratón, así que en el PC nada cambia.
+var objetivo_tactil: Vector2 = Vector2.ZERO
+var usa_objetivo_tactil := false
 ## Nodo de audio del mundo (lo pone `main.gd`; si no está, se busca en el grupo).
 var sonido: Sonido = null
 ## Semilla de las "motas" del patrón: cada gusano las tiene en sitios distintos.
@@ -161,9 +166,12 @@ func _physics_process(delta: float) -> void:
 # 1) MOVIMIENTO: la cabeza gira suavemente hacia el objetivo
 # ---------------------------------------------------------------------------
 
-## ¿Hacia dónde quiere ir el gusano? Por defecto, hacia el ratón (lo usa el jugador).
-## Los bots de `gusano_cpu.gd` sobreescriben esta función.
+## ¿Hacia dónde quiere ir el gusano? Por defecto, hacia el ratón (lo usa el
+## jugador). En el móvil, hacia el dedo (`objetivo_tactil`). Los bots de
+## `gusano_cpu.gd` sobreescriben esta función.
 func _direccion_deseada() -> Vector2:
+	if usa_objetivo_tactil:
+		return global_position.direction_to(objetivo_tactil)
 	return global_position.direction_to(get_global_mouse_position())
 
 

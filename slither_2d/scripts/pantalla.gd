@@ -4,8 +4,8 @@ extends Control
 ## ayudantes con los que cada pantalla monta su contenido.
 ##
 ## NODO AL QUE SE ADJUNTA: al **Control** raíz de cada escena de menú
-## (`Carga.tscn`, `MenuPrincipal.tscn`, `Seleccion.tscn`, `Records.tscn`,
-## `Opciones.tscn`, `ComoJugar.tscn` y `Creditos.tscn`).
+## (`MenuPrincipal.tscn`, `Seleccion.tscn`, `Records.tscn`, `Opciones.tscn`,
+## `ComoJugar.tscn` y `Creditos.tscn`).
 ##
 ## ¿Qué hace por ti?
 ##   * Pinta el fondo y añade los gusanos de adorno (`FondoMenu`).

@@ -17,17 +17,23 @@ Prototipo 2D tipo [slither.io](http://slither.io) dentro de un espacio "infinito
 
 1. Abre Godot 4.7 → **Importar** → selecciona esta carpeta
    (`slither_2d/project.godot`).
-2. Pulsa **F5**: arranca en la **pantalla de carga** y de ahí pasa sola al
-   **menú principal** (la escena principal es `escenas/Carga.tscn`; el juego está
-   en `escenas/Main.tscn`).
-3. En el menú, **JUGAR**. Mueve el ratón para dirigir al gusano y pulsa **SHIFT**
-   (o el botón derecho) para el **TURBO**. Al morir, **ESPACIO/ENTER** o los
-   botones del panel vuelven a jugar, y **ESC** abre la **pausa**.
+2. Pulsa **F5**: arranca directamente en el **menú principal** (la escena
+   principal es `escenas/MenuPrincipal.tscn`; no hay pantalla de carga: el menú
+   aparece con una animación corta y se puede saltar tocando la pantalla).
+3. En el menú, **JUGAR**.
 
-Controles: **ratón** = dirigir · **SHIFT / clic derecho** = turbo ·
-**ESC** = pausa (continuar, reiniciar, audio, menú) · **ESPACIO / ENTER** =
-reiniciar al morir · **M** = silencio · **N** = música (normal → bajita →
-apagada) · **P** = paleta de color · **O** = patrón del cuerpo.
+Controles pensados para **MÓVIL ANDROID EN HORIZONTAL** (y también valen con
+ratón):
+
+| Acción | En el móvil | Con ratón y teclado |
+|---|---|---|
+| Dirigir | Arrastra el dedo: el gusano gira hacia donde tocas | El ratón |
+| Turbo | Un **segundo dedo** en la pantalla, o el botón **TURBO** de abajo a la derecha | **SHIFT** o clic derecho |
+| Pausa | El botón **PAUSA** de arriba a la izquierda | **ESC** |
+| Elegir en los menús | Toca el botón | Clic, flechas y **ENTER** |
+| Silencio / música | En **OPCIONES** o en la pausa | **M** y **N** |
+| Piel | **SELECCIÓN DE PIEL** en el menú | **P** y **O** en partida |
+| Volver a jugar al morir | El botón **VOLVER A JUGAR** | **ESPACIO / ENTER** |
 
 > 🔉 **El juego suena, y no hay ni un archivo de audio**: los efectos y la música se
 > generan por código (`scripts/sonido.gd`). Ver "Sonido" más abajo.
@@ -38,15 +44,22 @@ apagada) · **P** = paleta de color · **O** = patrón del cuerpo.
 > `slither_2d` en VS Code (no la raíz del repo), porque en el repositorio hay
 > dos `project.godot` y la extensión de Godot se quedaría con el de la raíz.
 
+> 📱 **Está pensado para el móvil (Android) en horizontal**: la orientación ya
+> está puesta (`display/window/handheld/orientation = 4`, sensor landscape), el
+> arranque no enseña ningún lienzo blanco y los controles son táctiles (el dedo
+> dirige, un segundo dedo o el botón **TURBO** aceleran, y hay botón **PAUSA**
+> porque en Android no hay tecla ESC). Cómo probarlo en el teléfono: sección 9.5
+> de [COMO_TRABAJAR.md](COMO_TRABAJAR.md).
+
 > Este proyecto es independiente del proyecto Godot que hay en la raíz de este
 > repositorio: tiene su propio `project.godot`, así que se abre directamente
 > apuntando a la carpeta `slither_2d`.
 
 ### ✅ Comprobar que todo funciona
 
-Prueba automática de las **22 comprobaciones** (sin abrir ventana, unos
+Prueba automática de las **23 comprobaciones** (sin abrir ventana, unos
 segundos): primero que los scripts cargan, después las mecánicas una por una y,
-al final, las pantallas de menú y los ajustes.
+al final, las pantallas de menú, los ajustes y los controles táctiles.
 
 ```bash
 cd slither_2d
@@ -69,8 +82,7 @@ slither_2d/
 ├── project.godot
 ├── icon.svg
 ├── escenas/
-│   ├── Carga.tscn         ESCENA PRINCIPAL: pantalla de carga con barra y consejos
-│   ├── MenuPrincipal.tscn Menú: jugar, pieles, récords, opciones, cómo jugar, créditos
+│   ├── MenuPrincipal.tscn ESCENA PRINCIPAL: menú (jugar, pieles, récords, opciones...)
 │   ├── Seleccion.tscn     Selección de piel con vista previa girando
 │   ├── Records.tscn       Récords, estadísticas y logros con barras de progreso
 │   ├── Opciones.tscn      Audio (volúmenes), pantalla completa y mostrar FPS
@@ -94,8 +106,7 @@ slither_2d/
 │   ├── ajustes.gd           ⭐ ajustes del jugador en user://ajustes.cfg
 │   ├── gestor.gd            ⭐ catálogo de escenas y fundidos entre pantallas
 │   ├── pantalla.gd          ⭐ base de las pantallas de menú (armazón + ayudantes)
-│   ├── carga.gd             pantalla de carga (barra real, consejos, versión)
-│   ├── menu_principal.gd    menú principal
+│   ├── menu_principal.gd    menú principal (primera pantalla) e introducción animada
 │   ├── seleccion.gd         catálogo de paletas y patrones
 │   ├── vista_previa.gd      el gusano de muestra que gira en Selección
 │   ├── pantalla_records.gd  récords, estadísticas y logros
@@ -105,7 +116,7 @@ slither_2d/
 │   └── pausa.gd             menú de pausa (ESC)
 ├── tests/
 │   ├── PruebaMecanicas.tscn  Escena de la prueba automática
-│   └── prueba_mecanicas.gd   22 comprobaciones de mecánicas, HUD y pantallas
+│   └── prueba_mecanicas.gd   23 comprobaciones de mecánicas, HUD, pantallas y móvil
 ├── herramientas.sh        Atajos de terminal (sync, probar, jugar, subir...)
 └── .vscode/               Ajustes y tareas listas para VS Code
 └── preview/               capturas simuladas del aspecto (no hacen falta para jugar)
@@ -134,7 +145,6 @@ slither_2d/
 | `ajustes.gd` | *a ningún nodo*: ajustes del jugador en `user://ajustes.cfg` (utilidades estáticas) | — |
 | `gestor.gd` | *a ningún nodo*: catálogo de escenas y transiciones con fundido | — |
 | `pantalla.gd` | **`Control`** raíz de cada escena de menú; las demás heredan de él | `escenas/*.tscn` |
-| `carga.gd` | **`Control`** raíz | `escenas/Carga.tscn` |
 | `menu_principal.gd` | **`Control`** raíz | `escenas/MenuPrincipal.tscn` |
 | `seleccion.gd` | **`Control`** raíz | `escenas/Seleccion.tscn` |
 | `vista_previa.gd` | **`Control`** dentro del panel de la vista previa | `escenas/Seleccion.tscn` (por código) |
@@ -433,15 +443,14 @@ sin miedo):
 
 ### 13) Interfaz completa: pantallas, pausa y HUD de 4 zonas
 
-El juego tiene **ocho pantallas de menú** (además del propio juego), todas
+El juego tiene **siete pantallas de menú** (además del propio juego), todas
 montadas por código con **contenedores** (`VBoxContainer`, `HBoxContainer`,
 `CenterContainer`, `GridContainer`), que es lo que hace imposible que dos textos
 se monten uno encima de otro:
 
 | Pantalla | Qué tiene |
 |---|---|
-| **Carga** (`Carga.tscn`) | Barra de progreso con trabajo **real** (perfil, ajustes, precarga de escenas, síntesis de sonidos), consejos que rotan, versión y "Pulsa ESPACIO o haz clic" |
-| **Menú principal** | Botones (JUGAR, pieles, récords, opciones, cómo jugar, créditos, salir) + ficha de perfil y mejores partidas; fondo con gusanos de adorno |
+| **Menú principal** (primera pantalla) | Botones (JUGAR, pieles, récords, opciones, cómo jugar, créditos, salir) + ficha de perfil y mejores partidas; fondo con gusanos de adorno y **introducción animada** que se puede saltar |
 | **Selección de piel** | Vista previa del gusano **girando** (con las mismas funciones que el juego) + cuadrículas de paletas y patrones, con las bloqueadas apagadas y su requisito |
 | **Récords y logros** | Estadísticas, top 5, los 9 logros con **barras de progreso** y qué piel desbloquea cada uno, apodo editable y borrado con confirmación |
 | **Opciones** | Silencio, música (normal/bajita/apagada), volumen de efectos y de música (deslizadores), pantalla completa, mostrar FPS, restablecer |
@@ -454,6 +463,17 @@ Detalles de cómo está hecho (y por qué así):
 * **`gestor.gd`** guarda las rutas de todas las escenas y hace el **fundido** de
   transición. No es un autoload: cada función recibe el nodo desde el que se llama
   y busca dónde poner el fundido (la propia pantalla o el `HUD` del juego).
+* **No hay pantalla de carga**: el trabajo que hacía (leer el perfil, aplicar los
+  ajustes, precargar las escenas y sintetizar los sonidos) lo hace
+  `menu_principal.gd` en `_precalentar()`, **después** de pintar el menú, así que
+  la primera imagen sale en el primer frame. El arranque tampoco enseña ningún
+  lienzo blanco: `project.godot` pone la pantalla de arranque de Godot en el mismo
+  azul noche del juego y sin logo (`boot_splash/bg_color` y `boot_splash/show_image`).
+* **Todo está preparado para el móvil**: la orientación es **horizontal**
+  (`display/window/handheld/orientation = 4`, que además admite girar el teléfono
+  180°), los botones miden 58-64 px de alto para el dedo, y el HUD lleva botones de
+  **PAUSA** y **TURBO** porque en Android no hay teclado. El dedo dirige
+  (`Gusano.objetivo_tactil`) y un segundo dedo, o el botón, dan el turbo.
 * **`pantalla.gd`** es la base de los menús: crea el fondo, el audio de interfaz y
   ofrece los ayudantes (`crear_armazon()`, `anadir_panel()`, `boton()`, `barra()`,
   `fila_de_datos()`...). Cada pantalla solo dice **qué** enseña.

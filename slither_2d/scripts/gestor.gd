@@ -15,7 +15,8 @@ extends RefCounted
 ## boton.pressed.connect(func(): Gestor.ir_a(self, Gestor.OPCIONES))
 ## [/codeblock]
 
-const CARGA := "res://escenas/Carga.tscn"
+## El juego arranca directamente en el menú: ya no hay pantalla de carga (la barra
+## de progreso no aportaba nada porque todo se genera en el momento).
 const MENU := "res://escenas/MenuPrincipal.tscn"
 const JUEGO := "res://escenas/Main.tscn"
 const SELECCION := "res://escenas/Seleccion.tscn"

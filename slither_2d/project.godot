@@ -8,9 +8,13 @@ config_version=5
 
 config/name="Slither 2D - Prototipo"
 config/description="Prototipo tipo slither.io: gusano que sigue al ratón, cuerpo de segmentos, comida, power-ups, muerte por colisión, restos de comida e interfaz completa (carga, menú, pieles, récords, opciones y pausa)."
-run/main_scene="res://escenas/Carga.tscn"
+run/main_scene="res://escenas/MenuPrincipal.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
+; Pantalla de arranque: fondo oscuro y SIN el logo de Godot, para que al abrir el
+; juego en el móvil no se vea el lienzo blanco ni ningún destello.
+boot_splash/bg_color=Color(0.043137, 0.062745, 0.12549, 1)
+boot_splash/show_image=false
 
 [display]
 
@@ -18,6 +22,9 @@ window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+; MÓVIL: 4 = Sensor Landscape (horizontal, y también al girar el teléfono 180°).
+; Con 0 se queda clavado en una sola orientación horizontal.
+window/handheld/orientation=4
 
 [layer_names]
 

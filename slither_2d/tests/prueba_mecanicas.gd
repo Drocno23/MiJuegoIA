@@ -32,10 +32,11 @@ extends Node
 ##  16) morir al chocar con el cuerpo de OTRO gusano,
 ##  17) los restos: una comida en cada posición del cuerpo del muerto,
 ##  18) el récord, las estadísticas y el top 5 se guardan (idea 8D y 8E),
-##  19) las 8 pantallas de menú existen y se pueden instanciar,
+##  19) las 7 pantallas de menú existen y se pueden instanciar,
 ##  20) los ajustes (`ajustes.gd`) se guardan, se releen y no pisan otras claves,
 ##  21) el estilo, los efectos de menú y las recompensas de los logros,
-##  22) la pantalla de Opciones se monta con sus paneles, botones y deslizadores.
+##  22) la pantalla de Opciones se monta con sus paneles, botones y deslizadores,
+##  23) los controles táctiles: botones de PAUSA y TURBO y giro hacia el dedo.
 
 const RUTA_MAIN := "res://escenas/Main.tscn"
 const RUTA_COMIDA := "res://escenas/Comida.tscn"
@@ -65,7 +66,6 @@ const SCRIPTS_DEL_JUEGO := [
 	"res://scripts/pantalla.gd",
 	"res://scripts/fondo_menu.gd",
 	"res://scripts/vista_previa.gd",
-	"res://scripts/carga.gd",
 	"res://scripts/menu_principal.gd",
 	"res://scripts/seleccion.gd",
 	"res://scripts/pantalla_records.gd",
@@ -435,7 +435,9 @@ func _ejecutar() -> void:
 	# -------------------------------------------- 15) HUD en 4 zonas
 	var faltan_hud := PackedStringArray()
 	for ruta_hud in [
-		"HUD/ArribaIzquierda/Puntos", "HUD/ArribaIzquierda/Record", "HUD/ArribaIzquierda/Piel",
+		"HUD/ArribaIzquierda/BotonPausa", "HUD/BotonTurbo",
+		"HUD/ArribaIzquierda/Datos/Puntos", "HUD/ArribaIzquierda/Datos/Record",
+		"HUD/ArribaIzquierda/Datos/Piel",
 		"HUD/Aviso",
 		"HUD/ArribaDerecha/Minimapa", "HUD/ArribaDerecha/Clasificacion/Caja/Titulo",
 		"HUD/ArribaDerecha/Clasificacion/Caja/Filas", "HUD/ArribaDerecha/Clasificacion/Caja/Pie",
@@ -464,7 +466,7 @@ func _ejecutar() -> void:
 	var clasificacion_ok := titulo_clasificacion != null \
 		and titulo_clasificacion.text.contains("CLASIFICACIÓN")
 	_comprobar(
-		"15) HUD en 4 zonas: marcador debajo del minimapa y final con contenedores",
+		"15) HUD en 4 zonas: marcador debajo del minimapa, final y botones táctiles",
 		faltan_hud.is_empty() and clasificacion_ok and filas_ok and visibles >= 1,
 		"nodos del HUD: %s | clasificación: %s | filas: %d (visibles: %d)" % [
 			"todos" if faltan_hud.is_empty() else "faltan " + ", ".join(faltan_hud),
@@ -576,7 +578,7 @@ func _ejecutar() -> void:
 	# ------------------------------- 19) Las pantallas de menú existen
 	var escenas_rotas := PackedStringArray()
 	for ruta in [
-		Gestor.CARGA, Gestor.MENU, Gestor.SELECCION, Gestor.RECORDS, Gestor.OPCIONES,
+		Gestor.MENU, Gestor.SELECCION, Gestor.RECORDS, Gestor.OPCIONES,
 		Gestor.COMO_JUGAR, Gestor.CREDITOS, Gestor.PAUSA,
 	]:
 		var paquete := load(ruta) as PackedScene
@@ -590,10 +592,10 @@ func _ejecutar() -> void:
 		else:
 			copia.free()
 	_comprobar(
-		"19) Las 8 pantallas de menú existen y se instancian",
+		"19) Las 7 pantallas de menú existen y se instancian",
 		escenas_rotas.is_empty() and Gestor.VERSION != "",
 		"escenas: %d | versión: %s%s" % [
-			8 - escenas_rotas.size(), Gestor.VERSION,
+			7 - escenas_rotas.size(), Gestor.VERSION,
 			"" if escenas_rotas.is_empty() else " | FALLAN: " + ", ".join(escenas_rotas),
 		]
 	)
@@ -669,6 +671,38 @@ func _ejecutar() -> void:
 	var copia_ajustes := ProjectSettings.globalize_path("user://ajustes_prueba.cfg")
 	if FileAccess.file_exists(copia_ajustes):
 		DirAccess.remove_absolute(copia_ajustes)
+
+	# ------------------------------- 23) Controles táctiles (móvil Android)
+	var faltan_tactiles := PackedStringArray()
+	for ruta_tactil in ["HUD/ArribaIzquierda/BotonPausa", "HUD/BotonTurbo"]:
+		if main.get_node_or_null(ruta_tactil) == null:
+			faltan_tactiles.append(ruta_tactil)
+	# ¿Y funciona de verdad? Un gusano de prueba que solo obedece al "dedo": se le
+	# pone un objetivo táctil ARRIBA (a la izquierda no, porque ya iba hacia la
+	# derecha) y tiene que girar hacia allí.
+	var tactil := load(RUTA_GUSANO).instantiate() as Gusano
+	var giro_ok := false
+	if tactil != null:
+		tactil.velocidad = 140.0
+		tactil.segmentos_iniciales = 3
+		add_child(tactil)
+		await _esperar_fisica(2)
+		tactil.direccion = Vector2.RIGHT
+		tactil.objetivo_tactil = tactil.global_position + Vector2.UP * 600.0
+		tactil.usa_objetivo_tactil = true
+		await _esperar_fisica(14)
+		giro_ok = tactil.direccion.y < -0.3
+		tactil.queue_free()
+		await get_tree().process_frame
+	_comprobar(
+		"23) Controles táctiles: botones de PAUSA y TURBO, y giro hacia el dedo",
+		faltan_tactiles.is_empty() and giro_ok,
+		"botones del HUD: %s | el gusano gira hacia el dedo: %s (dirección %.2f)" % [
+			"ok" if faltan_tactiles.is_empty() else "faltan " + ", ".join(faltan_tactiles),
+			"sí" if giro_ok else "NO",
+			tactil.direccion.y if tactil != null else 0.0,
+		]
+	)
 
 	await _limpiar(main)
 

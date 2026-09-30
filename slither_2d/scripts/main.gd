@@ -3,6 +3,13 @@ extends Node2D
 ## Gestor del mundo: crea la comida, los power-ups, al jugador y a los bots, y
 ## actualiza el HUD (cuatro zonas, sin nada encima de nada).
 ##
+## CONTROLES (pensado para MÓVIL en horizontal, y también funciona con ratón):
+##   * El dedo (o el ratón) dirige: el gusano gira hacia donde tocas.
+##   * Un SEGUNDO dedo (o el botón TURBO de abajo a la derecha, o SHIFT, o el clic
+##     derecho) activa el turbo mientras se mantiene.
+##   * El botón PAUSA de arriba a la izquierda abre el menú de pausa (en un móvil no
+##     hay tecla ESC, así que hace falta).
+##
 ## NODO AL QUE SE ADJUNTA: el **Node2D raíz** de `escenas/Main.tscn` (escena principal).
 ## Estructura de la escena:
 ##
@@ -13,12 +20,13 @@ extends Node2D
 ##   ├── Camara           -> Camera2D    (sigue al jugador)
 ##   ├── Sonido           -> Node2D      (scripts/sonido.gd: audio generado por código)
 ##   └── HUD              -> CanvasLayer
-##       ├── ArribaIzquierda -> VBoxContainer (Puntos, Record, Piel)
+##       ├── ArribaIzquierda -> HBoxContainer (botón PAUSA + Puntos, Record, Piel)
 ##       ├── Aviso           -> Label      (avisos que se desvanecen)
 ##       ├── ArribaDerecha   -> VBoxContainer
 ##       │   ├── Minimapa    -> Control    (scripts/minimapa.gd)
 ##       │   └── Clasificacion -> PanelContainer ("CLASIFICACIÓN": 5 filas y pie)
 ##       ├── Efectos, TurboTexto, TurboFondo/Relleno (abajo a la izquierda)
+##       ├── BotonTurbo      -> Button     (abajo a la derecha, mantener pulsado)
 ##       ├── Audio, FPS      -> Label      (abajo a la derecha)
 ##       ├── Ayuda           -> Label      (abajo en el centro)
 ##       ├── Final           -> Control    (fin de partida: un panel con TODO
@@ -78,13 +86,20 @@ var _contador_bots := 0
 var _generacion := 0  ## Sube al reiniciar, para que los bots viejos no reaparezcan.
 ## Filas del marcador (se crean una vez y se rellenan; ver `_preparar_clasificacion`).
 var _filas_clasificacion: Array = []
+## Dedos que hay ahora mismo en la pantalla (móvil): índice del dedo -> posición.
+## El primero que toca dirige al gusano; con dos o más, el turbo se enciende solo.
+var _toques: Dictionary = {}
+var _turbo_tactil := false  ## ¿Hay dos dedos (o más) en la pantalla?
+var _turbo_boton := false  ## ¿Está pulsado el botón TURBO del HUD?
 
 @onready var contenedor_comida: Node2D = $ContenedorComida
 @onready var contenedor_gusanos: Node2D = $Gusanos
 @onready var camara: Camera2D = $Camara
-@onready var etiqueta_puntos: Label = $HUD/ArribaIzquierda/Puntos
-@onready var etiqueta_record: Label = $HUD/ArribaIzquierda/Record
-@onready var etiqueta_piel: Label = $HUD/ArribaIzquierda/Piel
+@onready var boton_pausa: Button = $HUD/ArribaIzquierda/BotonPausa
+@onready var boton_turbo: Button = $HUD/BotonTurbo
+@onready var etiqueta_puntos: Label = $HUD/ArribaIzquierda/Datos/Puntos
+@onready var etiqueta_record: Label = $HUD/ArribaIzquierda/Datos/Record
+@onready var etiqueta_piel: Label = $HUD/ArribaIzquierda/Datos/Piel
 @onready var etiqueta_ayuda: Label = $HUD/Ayuda
 @onready var etiqueta_efectos: Label = $HUD/Efectos
 @onready var etiqueta_turbo: Label = $HUD/TurboTexto
@@ -157,6 +172,9 @@ func _input(evento: InputEvent) -> void:
 	# Red de seguridad: si el mundo no ha terminado de montarse (o alguien edita la
 	# escena y quita el HUD), no inundamos la consola con errores por cada tecla.
 	if pantalla_final == null:
+		return
+	# Móvil: el dedo dirige y el segundo dedo da turbo.
+	if _gestionar_toques(evento):
 		return
 	# Si estás escribiendo tu nombre, las teclas son para el campo (y un clic
 	# dentro de él no reinicia la partida).
@@ -314,6 +332,8 @@ func _crear_jugador() -> void:
 		int(datos.get("patron", Pieles.Patron.LISO))
 	)
 	gusano.sonido = sonido
+	# En el móvil el objetivo lo pone el dedo; hasta que no haya toques, ratón.
+	gusano.usa_objetivo_tactil = false
 	# Grupo que usan los bots para saber dónde está "la acción".
 	gusano.add_to_group(Gusano.GRUPO_JUGADOR)
 	gusano.murio.connect(_on_gusano_murio.bind(gusano))
@@ -434,7 +454,10 @@ func _actualizar_turbo_jugador() -> void:
 		etiqueta_efectos.text = ""
 		turbo_relleno.size.x = 0.0
 		return
-	jugador.activar_turbo(Input.is_action_pressed("turbo"))
+	# Tres formas de pedir turbo: teclado/ratón (acción "turbo"), un segundo dedo en
+	# la pantalla o el botón TURBO del HUD. Cualquiera de las tres vale.
+	var quiere_turbo := Input.is_action_pressed("turbo") or _turbo_tactil or _turbo_boton
+	jugador.activar_turbo(quiere_turbo)
 	turbo_relleno.size.x = ANCHO_BARRA_TURBO * clampf(
 		float(jugador.longitud() - jugador.segmentos_minimos_turbo) / SEGMENTOS_TURBO_LLENO,
 		0.0, 1.0
@@ -640,6 +663,9 @@ func _terminar_partida() -> void:
 	etiqueta_mejores.text = Records.texto_mejores(datos.get("mejores", []) as Array, false)
 	campo_apodo.text = apodo
 	pantalla_final.visible = true
+	# Con el panel de fin de partida delante, los botones del HUD estorban.
+	boton_pausa.visible = false
+	boton_turbo.visible = false
 	boton_reintentar.grab_focus()
 	# Golpe grave de cierre, además del sonido de muerte del gusano. Suena donde
 	# está la cámara (el gusano ya no existe, pero la cámara sigue ahí).
@@ -654,6 +680,12 @@ func _reiniciar_partida() -> void:
 	_generacion += 1
 	pantalla_final.visible = false
 	campo_apodo.release_focus()
+	# Los dedos y el turbo del HUD se quedan en blanco para la partida nueva.
+	_toques.clear()
+	_turbo_tactil = false
+	_turbo_boton = false
+	boton_pausa.visible = true
+	boton_turbo.visible = true
 	_puntos = 0
 	_record = 0
 	_tiempo_partida = 0.0
@@ -700,6 +732,11 @@ func _estilizar_hud() -> void:
 	Estilo.estilizar_boton(boton_menu_final)
 	Estilo.estilizar_boton(boton_salir_final, true, Estilo.PELIGRO)
 	Estilo.estilizar_texto(etiqueta_fps, Estilo.PEQUENO, Estilo.TEXTO_SUAVE)
+	# Botones táctiles: translúcidos para no tapar el juego; se aclaran al pulsarlos.
+	Estilo.estilizar_boton(boton_pausa)
+	boton_pausa.modulate.a = 0.85
+	Estilo.estilizar_boton(boton_turbo, true)
+	boton_turbo.modulate.a = 0.62
 
 
 ## Crea las cinco filas del marcador una sola vez (luego solo se rellenan): así el
@@ -725,6 +762,11 @@ func _preparar_clasificacion() -> void:
 ## Conecta los botones del final de partida y los del menú de pausa (por señales:
 ## `pausa.gd` no sabe nada de la partida, solo avisa de lo que pulsa el jugador).
 func _conectar_interfaz() -> void:
+	# Botón PAUSA (para el móvil, donde no hay tecla ESC).
+	boton_pausa.pressed.connect(_alternar_pausa)
+	# Botón TURBO: se mantiene pulsado, así que se usa button_down/button_up.
+	boton_turbo.button_down.connect(_on_turbo_abajo)
+	boton_turbo.button_up.connect(_on_turbo_arriba)
 	boton_reintentar.pressed.connect(_reiniciar_partida)
 	boton_menu_final.pressed.connect(_ir_al_menu)
 	boton_salir_final.pressed.connect(Gestor.salir)
@@ -745,6 +787,13 @@ func _alternar_pausa() -> void:
 		_reanudar()
 		return
 	get_tree().paused = true
+	# Al abrir la pausa se "sueltan" los dedos y el turbo (si no, el gusano seguiría
+	# acelerando al volver a la partida sin que nadie lo esté tocando).
+	_toques.clear()
+	_turbo_tactil = false
+	_turbo_boton = false
+	if boton_turbo != null:
+		boton_turbo.modulate.a = 0.62
 	pausa.abrir()
 	sonido.tocar("clic", camara.global_position)
 
@@ -767,3 +816,74 @@ func _ir_al_menu() -> void:
 func _mostrar_fps(mostrar: bool) -> void:
 	if etiqueta_fps != null:
 		etiqueta_fps.visible = mostrar
+
+
+
+# ---------------------------------------------------------------------------
+# Controles táctiles (móvil Android en horizontal)
+# ---------------------------------------------------------------------------
+
+## ¿El evento es un dedo apoyado o arrastrado? Devuelve `true` si lo ha usado.
+## El primero que toca la pantalla dirige al gusano; con DOS dedos (o más) se
+## enciende el turbo, que es el control clásico de este tipo de juegos en el móvil.
+func _gestionar_toques(evento: InputEvent) -> bool:
+	var toque := evento as InputEventScreenTouch
+	if toque != null:
+		# Los toques que empiezan encima de un botón son para ese botón, no para
+		# dirigir (si no, tocar TURBO giraría al gusano hacia la esquina).
+		if toque.pressed and _sobre_boton(toque.position):
+			return true
+		if toque.pressed:
+			_toques[toque.index] = toque.position
+		else:
+			_toques.erase(toque.index)
+		_actualizar_toques()
+		return true
+	var arrastre := evento as InputEventScreenDrag
+	if arrastre != null:
+		if _toques.has(arrastre.index):
+			_toques[arrastre.index] = arrastre.position
+			_actualizar_toques()
+		return true
+	return false
+
+
+## Traslada los dedos que hay en pantalla al jugador: el de índice más bajo dirige
+## y, si hay dos o más, el turbo se enciende solo.
+func _actualizar_toques() -> void:
+	_turbo_tactil = _toques.size() >= 2
+	if not is_instance_valid(jugador) or pantalla_final.visible or get_tree().paused:
+		return
+	if _toques.is_empty():
+		jugador.usa_objetivo_tactil = false
+		return
+	# El dedo que empezó antes (el índice más bajo) es el que dirige.
+	var indices: Array = _toques.keys()
+	indices.sort()
+	var posicion_pantalla: Vector2 = _toques[indices[0]]
+	jugador.objetivo_tactil = _mundo_desde_pantalla(posicion_pantalla)
+	jugador.usa_objetivo_tactil = true
+
+
+## ¿Ese punto de la pantalla está encima del botón de PAUSA o del de TURBO?
+func _sobre_boton(posicion: Vector2) -> bool:
+	var botones: Array[Button] = [boton_pausa, boton_turbo]
+	for boton in botones:
+		if boton != null and boton.visible and boton.get_global_rect().has_point(posicion):
+			return true
+	return false
+
+
+## Pasa un punto de la PANTALLA (en píxeles) a coordenadas del MUNDO del juego.
+func _mundo_desde_pantalla(posicion: Vector2) -> Vector2:
+	return get_viewport().get_canvas_transform().affine_inverse() * posicion
+
+
+func _on_turbo_abajo() -> void:
+	_turbo_boton = true
+	boton_turbo.modulate.a = 1.0
+
+
+func _on_turbo_arriba() -> void:
+	_turbo_boton = false
+	boton_turbo.modulate.a = 0.62

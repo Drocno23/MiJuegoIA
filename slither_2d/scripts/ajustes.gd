@@ -64,6 +64,10 @@ static func guardar(cambios: Dictionary) -> void:
 ## Aplica los ajustes de pantalla (pantalla completa sí/no). Se llama al arrancar
 ## el juego y cada vez que se cambian en Opciones.
 static func aplicar_pantalla(valores: Dictionary) -> void:
+	# En el móvil la ventana ya ocupa toda la pantalla siempre: no hay nada que
+	# aplicar (y cambiar el modo de ventana en Android no aporta nada bueno).
+	if OS.has_feature("mobile"):
+		return
 	# Sin ternarios ni `:=` con enums: dos ramas claras, imposible de confundir al
 	# analizador de tipos (y el error de inferencia no puede aparecer aquí).
 	if bool(valores.get("pantalla_completa", false)):

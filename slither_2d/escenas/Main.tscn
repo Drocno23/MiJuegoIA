@@ -26,25 +26,35 @@ script = ExtResource("4_sonido")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
-[node name="ArribaIzquierda" type="VBoxContainer" parent="HUD"]
+[node name="ArribaIzquierda" type="HBoxContainer" parent="HUD"]
 offset_left = 20.0
 offset_top = 12.0
 offset_right = 640.0
 offset_bottom = 12.0
 grow_horizontal = 1
+mouse_filter = 1
+theme_override_constants/separation = 12
+
+[node name="BotonPausa" type="Button" parent="HUD/ArribaIzquierda"]
+custom_minimum_size = Vector2(120, 64)
+theme_override_font_sizes/font_size = 18
+text = "PAUSA"
+
+[node name="Datos" type="VBoxContainer" parent="HUD/ArribaIzquierda"]
+mouse_filter = 2
 theme_override_constants/separation = 2
 
-[node name="Puntos" type="Label" parent="HUD/ArribaIzquierda"]
+[node name="Puntos" type="Label" parent="HUD/ArribaIzquierda/Datos"]
 theme_override_colors/font_color = Color(1, 1, 1, 0.95)
 theme_override_font_sizes/font_size = 24
 text = "PUNTOS: 0"
 
-[node name="Record" type="Label" parent="HUD/ArribaIzquierda"]
+[node name="Record" type="Label" parent="HUD/ArribaIzquierda/Datos"]
 theme_override_colors/font_color = Color(0.85, 0.9, 1, 0.75)
 theme_override_font_sizes/font_size = 15
 text = "Récord de la partida: 0"
 
-[node name="Piel" type="Label" parent="HUD/ArribaIzquierda"]
+[node name="Piel" type="Label" parent="HUD/ArribaIzquierda/Datos"]
 theme_override_colors/font_color = Color(0.9, 0.85, 1, 0.85)
 theme_override_font_sizes/font_size = 14
 text = "Piel: Clásico · Liso   (P y O cambian)"
@@ -71,6 +81,7 @@ offset_top = 12.0
 offset_right = -16.0
 offset_bottom = 12.0
 grow_horizontal = 0
+mouse_filter = 2
 theme_override_constants/separation = 10
 
 [node name="Minimapa" type="Control" parent="HUD/ArribaDerecha"]
@@ -81,6 +92,7 @@ script = ExtResource("3_minimapa")
 [node name="Clasificacion" type="PanelContainer" parent="HUD/ArribaDerecha"]
 
 [node name="Caja" type="VBoxContainer" parent="HUD/ArribaDerecha/Clasificacion"]
+mouse_filter = 2
 theme_override_constants/separation = 5
 
 [node name="Titulo" type="Label" parent="HUD/ArribaDerecha/Clasificacion/Caja"]
@@ -89,12 +101,27 @@ theme_override_font_sizes/font_size = 16
 text = "CLASIFICACIÓN"
 
 [node name="Filas" type="VBoxContainer" parent="HUD/ArribaDerecha/Clasificacion/Caja"]
+mouse_filter = 2
 theme_override_constants/separation = 3
 
 [node name="Pie" type="Label" parent="HUD/ArribaDerecha/Clasificacion/Caja"]
 theme_override_colors/font_color = Color(1, 0.83, 0.36, 0.9)
 theme_override_font_sizes/font_size = 13
 text = "Mejor marca: 0 puntos"
+
+[node name="BotonTurbo" type="Button" parent="HUD"]
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -250.0
+offset_top = -178.0
+offset_right = -30.0
+offset_bottom = -78.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_font_sizes/font_size = 30
+text = "TURBO"
 
 [node name="Efectos" type="Label" parent="HUD"]
 anchor_top = 1.0
@@ -187,7 +214,7 @@ grow_vertical = 0
 mouse_filter = 2
 theme_override_colors/font_color = Color(1, 1, 1, 0.75)
 theme_override_font_sizes/font_size = 17
-text = "Ratón: dirigir · SHIFT o clic derecho: TURBO · ESC: pausa"
+text = "Dedo o ratón: dirigir · 2º dedo, botón TURBO, SHIFT o clic derecho: turbo"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -269,15 +296,15 @@ theme_override_constants/separation = 10
 alignment = 1
 
 [node name="Reintentar" type="Button" parent="HUD/Final/Centro/Panel/Caja/Botones"]
-custom_minimum_size = Vector2(240, 46)
+custom_minimum_size = Vector2(240, 60)
 text = "VOLVER A JUGAR"
 
 [node name="Menu" type="Button" parent="HUD/Final/Centro/Panel/Caja/Botones"]
-custom_minimum_size = Vector2(220, 46)
+custom_minimum_size = Vector2(220, 60)
 text = "MENÚ PRINCIPAL"
 
 [node name="Salir" type="Button" parent="HUD/Final/Centro/Panel/Caja/Botones"]
-custom_minimum_size = Vector2(140, 46)
+custom_minimum_size = Vector2(140, 60)
 text = "SALIR"
 
 [node name="Pausa" parent="HUD" instance=ExtResource("5_pausa")]

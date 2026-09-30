@@ -136,8 +136,14 @@ func _montar_sonido(padre: Node) -> void:
 func _montar_pantalla(padre: Node) -> void:
 	var caja := anadir_panel(padre, "Pantalla y extras")
 
-	_boton_completa = _boton_de_valor(_texto_si_no("pantalla_completa"), _alternar_completa)
-	_fila(caja, "Pantalla completa").add_child(_boton_completa)
+	if OS.has_feature("mobile"):
+		# En un móvil el juego siempre va a pantalla completa: se explica en vez de
+		# ofrecer un botón que no haría nada.
+		var fila_movil := _fila(caja, "Pantalla completa")
+		fila_movil.add_child(etiqueta("SIEMPRE (móvil)", "dato"))
+	else:
+		_boton_completa = _boton_de_valor(_texto_si_no("pantalla_completa"), _alternar_completa)
+		_fila(caja, "Pantalla completa").add_child(_boton_completa)
 
 	_boton_fps = _boton_de_valor(_texto_si_no("mostrar_fps"), _alternar_fps)
 	_fila(caja, "Mostrar los FPS en partida").add_child(_boton_fps)
