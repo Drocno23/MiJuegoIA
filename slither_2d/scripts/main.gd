@@ -106,6 +106,10 @@ func _process(delta: float) -> void:
 
 
 func _input(evento: InputEvent) -> void:
+	# Red de seguridad: si el mundo no ha terminado de montarse (o alguien edita la
+	# escena y quita el HUD), no inundamos la consola con errores por cada tecla.
+	if pantalla_final == null:
+		return
 	# Teclas de audio (se leen aquí y no en el mapa de entrada del proyecto para
 	# no tocar project.godot): M = silencio, N = música normal/bajita/apagada.
 	var tecla := evento as InputEventKey

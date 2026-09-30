@@ -39,6 +39,10 @@ const MUSICA_APAGADA := 0
 ## Grupo con el nodo de audio del mundo (los gusanos lo buscan por aquí).
 const GRUPO := "audio"
 
+## Parámetros de la música: 16 tiempos a 128 BPM (60/128 * 16 = 7,5 s de bucle).
+const MUSICA_BPM := 128.0
+const MUSICA_TIEMPOS := 16
+
 const FRECUENCIA_MEZCLA := 22050  ## Muestras por segundo (calidad de sobra).
 const VOCES := 6  ## Cuántos efectos pueden sonar a la vez sin cortarse.
 
@@ -164,10 +168,8 @@ static func generar_efecto(nombre: String) -> AudioStreamWAV:
 ## (onda cuadrada), bajo (triangular) y bombo. Ninguna nota queda sonando en el
 ## punto de unión, así que el bucle enlaza sin corte.
 static func generar_musica() -> AudioStreamWAV:
-	const BPM := 128.0
-	const TIEMPOS := 16
-	var tiempo := 60.0 / BPM
-	var total := int(FRECUENCIA_MEZCLA * tiempo * TIEMPOS)
+	var tiempo := 60.0 / MUSICA_BPM
+	var total := int(FRECUENCIA_MEZCLA * tiempo * MUSICA_TIEMPOS)
 	var flujo := _flujo_vacio(total)
 	# Melodía: una nota por tiempo, escala de La menor.
 	var melodia := PackedFloat32Array([
@@ -263,8 +265,20 @@ func alternar_musica() -> void:
 ## Rótulo para el HUD ("M: silencio · MÚSICA: ON (N)").
 func texto_estado() -> String:
 	var estado_sonido := "SONIDO: OFF (M)" if _silencio else "M: silencio"
-	var estado_musica := ["MÚSICA: OFF", "MÚSICA: BAJITA", "MÚSICA: ON"][_nivel_musica]
-	return "%s  ·  %s (N)" % [estado_sonido, estado_musica]
+	return "%s  ·  %s (N)" % [estado_sonido, nombre_nivel_musica(_nivel_musica)]
+
+
+## Nombre del nivel de música. Es una función con `match` (y no un Array) porque
+## sacar un valor de un Array sin tipo da Variant, y GDScript no puede inferir
+## el tipo con `:=` (error "Cannot infer the type of ... variable").
+static func nombre_nivel_musica(nivel: int) -> String:
+	match nivel:
+		MUSICA_APAGADA:
+			return "MÚSICA: OFF"
+		MUSICA_BAJITA:
+			return "MÚSICA: BAJITA"
+		_:
+			return "MÚSICA: ON"
 
 
 # ---------------------------------------------------------------------------
@@ -300,6 +314,8 @@ func _aplicar_estado() -> void:
 		return
 	match _nivel_musica:
 		MUSICA_APAGADA:
+			# -80 dB es silencio; además se pausa para no gastar CPU.
+			_musica.volume_db = -80.0
 			_musica.stream_paused = true
 		MUSICA_BAJITA:
 			_musica.stream_paused = false
