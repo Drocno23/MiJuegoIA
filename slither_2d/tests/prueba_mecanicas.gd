@@ -246,6 +246,10 @@ func _ejecutar() -> void:
 		"la comida se acercó %.1f px a la cabeza" % movida
 	)
 
+	# Apagamos el imán: si siguiera activo arrastraría comida durante las
+	# comprobaciones siguientes y podría descuadrar el recuento de los restos.
+	gusano._tiempo_iman = 0.0
+
 	# -------------------- 10) Los power-ups se generan en el mundo
 	main._aparecer_powerup()
 	var powerups_en_el_mundo := 0
