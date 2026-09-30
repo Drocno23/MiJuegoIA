@@ -41,6 +41,9 @@ const MAX_PASOS_FRAME := 8  ## Límite de seguridad al muestrear el camino.
 @export_group("Apariencia")
 @export var radio: float = 12.0
 @export var color: Color = Color("35c9ff")
+## Dibuja los círculos con el borde suave (independiente del MSAA del renderizador).
+## Ponlo en false para volver al draw_circle() clásico.
+@export var bordes_suaves: bool = true
 
 @export_group("Reglas")
 ## Segundos al nacer en los que no puede morir (evita muertes absurdas al aparecer).
@@ -163,6 +166,7 @@ func _agregar_segmento(animar: bool = true) -> void:
 	# del segmento es quien las aplica a la forma de colisión y al dibujo.
 	segmento.radio = radio
 	segmento.color = color
+	segmento.bordes_suaves = bordes_suaves  # El cuerpo hereda el ajuste de la cabeza.
 	segmento.dueno = self
 	segmento.animar_aparicion = animar
 	contenedor_segmentos.add_child(segmento)
@@ -259,12 +263,15 @@ func mirar_hacia(angulo: float) -> void:
 # ---------------------------------------------------------------------------
 
 func _draw() -> void:
-	draw_circle(Vector2.ZERO, radio, color.darkened(0.45))  # borde
-	draw_circle(Vector2.ZERO, radio * 0.88, color)  # relleno
+	# Círculos con borde suave: se dibujan como textura en vez de con
+	# draw_circle() porque el renderizador GL Compatibility no soporta MSAA 2D
+	# (ver las explicaciones en scripts/dibujo.gd).
+	Dibujo.disco(self, Vector2.ZERO, radio, color.darkened(0.45), bordes_suaves)  # borde
+	Dibujo.disco(self, Vector2.ZERO, radio * 0.88, color, bordes_suaves)  # relleno
 	# Ojos: miran siempre hacia donde va la cabeza.
 	var hacia_adelante := direccion * radio * 0.45
 	var hacia_lado := direccion.orthogonal() * radio * 0.4
 	for lado in [-1.0, 1.0]:
 		var ojo := hacia_adelante + hacia_lado * lado
-		draw_circle(ojo, radio * 0.27, Color.WHITE)
-		draw_circle(ojo + direccion * radio * 0.1, radio * 0.14, Color.BLACK)
+		Dibujo.disco(self, ojo, radio * 0.27, Color.WHITE, bordes_suaves)
+		Dibujo.disco(self, ojo + direccion * radio * 0.1, radio * 0.14, Color.BLACK, bordes_suaves)

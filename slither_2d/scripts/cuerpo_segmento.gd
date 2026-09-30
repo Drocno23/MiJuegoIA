@@ -17,6 +17,8 @@ const GRUPO := "segmento_cuerpo"  ## Grupo que usa la cabeza para reconocer un c
 @export var radio: float = 12.0  ## Radio visual y de colisión del segmento.
 @export var color: Color = Color("35c9ff")  ## Color del cuerpo (lo fija el gusano).
 @export var animar_aparicion: bool = true  ## Animación de "nacer" al crecer.
+## Dibuja los círculos con el borde suave (independiente del MSAA del renderizador).
+@export var bordes_suaves: bool = true
 
 ## Gusano dueño de este segmento. Se usa para saber si el choque mortal
 ## es contra el propio cuerpo (permitido) o contra el de otro gusano (muerte).
@@ -47,6 +49,8 @@ func _animar_nacimiento() -> void:
 
 func _draw() -> void:
 	# Círculo con borde, relleno y un pequeño brillo: sin necesidad de imágenes.
-	draw_circle(Vector2.ZERO, radio, color.darkened(0.42))
-	draw_circle(Vector2.ZERO, radio * 0.86, color)
-	draw_circle(-Vector2.ONE * radio * 0.3, radio * 0.22, color.lightened(0.4))
+	Dibujo.disco(self, Vector2.ZERO, radio, color.darkened(0.42), bordes_suaves)
+	Dibujo.disco(self, Vector2.ZERO, radio * 0.86, color, bordes_suaves)
+	Dibujo.disco(
+		self, -Vector2.ONE * radio * 0.3, radio * 0.22, color.lightened(0.4), bordes_suaves
+	)

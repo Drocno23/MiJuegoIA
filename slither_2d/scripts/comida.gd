@@ -27,6 +27,10 @@ const GRUPO := "comida"  ## Grupo que usa la cabeza del gusano para reconocerla.
 		radio = maxf(nuevo_radio, 1.0)
 		_actualizar_forma()
 
+## Dibuja los círculos con el borde suave (independiente del MSAA del renderizador).
+## Ponlo en false para volver al draw_circle() clásico.
+@export var bordes_suaves: bool = true
+
 @export var color: Color = Color("ffd54a"):
 	set(nuevo_color):
 		color = nuevo_color
@@ -76,6 +80,8 @@ func _animar_latido() -> void:
 
 
 func _draw() -> void:
-	draw_circle(Vector2.ZERO, radio, color.darkened(0.45))          # borde
-	draw_circle(Vector2.ZERO, radio * 0.82, color)                  # relleno
-	draw_circle(-Vector2.ONE * radio * 0.28, radio * 0.24, color.lightened(0.5))  # brillo
+	Dibujo.disco(self, Vector2.ZERO, radio, color.darkened(0.45), bordes_suaves)
+	Dibujo.disco(self, Vector2.ZERO, radio * 0.82, color, bordes_suaves)
+	Dibujo.disco(
+		self, -Vector2.ONE * radio * 0.28, radio * 0.24, color.lightened(0.5), bordes_suaves
+	)  # brillo

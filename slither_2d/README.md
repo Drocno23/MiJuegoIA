@@ -38,14 +38,21 @@ slither_2d/
 │   ├── GusanoCPU.tscn     Escena HEREDADA de Gusano.tscn con el script de bot
 │   ├── Segmento.tscn      Un segmento del cuerpo
 │   └── Comida.tscn        Una bola de comida
-└── scripts/
-    ├── gusano.gd            ⭐ mecánicas 1, 2, 3 y 4 (movimiento, crecimiento, muerte, restos)
-    ├── cuerpo_segmento.gd   ⭐ un segmento del cuerpo
-    ├── comida.gd            ⭐ la comida
-    ├── gusano_cpu.gd        IA de los bots (hereda de Gusano)
-    ├── main.gd              mundo: spawnea comida/bots, HUD y reinicio
-    └── fondo.gd             cuadrícula infinita de fondo
+├── scripts/
+│   ├── gusano.gd            ⭐ mecánicas 1, 2, 3 y 4 (movimiento, crecimiento, muerte, restos)
+│   ├── cuerpo_segmento.gd   ⭐ un segmento del cuerpo
+│   ├── comida.gd            ⭐ la comida
+│   ├── gusano_cpu.gd        IA de los bots (hereda de Gusano)
+│   ├── main.gd              mundo: spawnea comida/bots, HUD y reinicio
+│   ├── dibujo.gd            utilidad de dibujo (círculos con borde suave)
+│   └── fondo.gd             cuadrícula infinita de fondo
+└── preview/               capturas simuladas del aspecto (no hacen falta para jugar)
+    ├── aspecto.png
+    ├── detalle_bordes.png
+    └── render.py          script de Python que genera esas imágenes
 ```
+
+![Aspecto del prototipo](preview/aspecto.png)
 
 ---
 
@@ -59,6 +66,7 @@ slither_2d/
 | `gusano_cpu.gd` | **`Node2D`** raíz de `GusanoCPU.tscn` (escena heredada de `Gusano.tscn`) | `escenas/GusanoCPU.tscn` |
 | `main.gd` | **`Node2D`** raíz | `escenas/Main.tscn` |
 | `fondo.gd` | **`Node2D`** hijo de Main | `escenas/Main.tscn` |
+| `dibujo.gd` | *a ningún nodo*: es una clase de utilidades estáticas (`Dibujo.disco(...)`) | — |
 
 Árbol de `Gusano.tscn`:
 
@@ -222,6 +230,8 @@ Su IA (toma una decisión cada 0.15 s, no en cada frame):
 * **Cuerpo más apretado**: `separacion` (por defecto 15 px con radio 12).
 * **Más/menos comida y bots**: `Main → Comida/Gusanos`.
 * **Zoom de la cámara**: `Main → Camara → Zoom` (1.0 abre mucho campo de visión).
+* **Bordes de los círculos**: casilla `bordes_suaves` en `Gusano` y en `Comida`
+  (`true` = textura con borde suave, `false` = `draw_circle()` clásico).
 
 ---
 
@@ -238,6 +248,29 @@ puedes hacer `rotation = direccion.angle()` en el `_physics_process`.
 
 ---
 
+## ⚠️ ¿Te sale el aviso `render_target_set_msaa: 2D MSAA is not yet supported for GLES3`?
+
+Era un **aviso (W), no un error**, y ya no aparece porque lo hemos quitado de raíz:
+
+* Venía del ajuste `rendering/anti_aliasing/quality/msaa_2d=2` del `project.godot`.
+* El proyecto usa el renderizador **GL Compatibility** (para que funcione en GPUs
+  integradas, móviles y web), y ahí Godot todavía no implementa MSAA 2D: ignora el
+  ajuste y lo avisa por consola. Es decir, **ese MSAA nunca se aplicó** y la imagen
+  se veía igual que sin él, así que quitar el ajuste no cambia nada visualmente.
+* ¿Y por qué no se notaba el aliasing? Porque en vez de depender del MSAA, todos
+  los círculos del juego (cabeza, segmentos y comida) se dibujan con una textura
+  de borde degradado, que funciona en **cualquier** renderizador. Lo hace
+  `Dibujo.disco()` en `scripts/dibujo.gd`, dibujando una textura de círculo con
+  el alfa degradado en el borde (`antialiased` de `draw_circle()` sólo sirve para
+  contornos: con `filled = true` Godot lo ignora).
+
+Si prefieres el `draw_circle()` clásico, cada gusano y cada comida tiene la
+casilla **`bordes_suaves`** en el inspector: ponla en `false` y listo.
+Y si quieres MSAA 2D de verdad, cambia el renderizador a **Forward+**
+(`Proyecto → Ajustes → Rendering → Renderer`) — con GL Compatibility no está soportado.
+
+---
+
 ## ⚠️ Detalles de Godot 4 que se han tenido en cuenta
 
 * `angle_difference()`, `get_global_mouse_position()`, `queue_redraw()`, `create_tween()`,
@@ -250,6 +283,8 @@ puedes hacer `rotation = direccion.angle()` en el `_physics_process`.
   instancia tenga el suyo; si no, todas compartirían el mismo recurso.
 * Cambiar `monitoring`/`monitorable` dentro de una señal de física se hace con
   `set_deferred()`.
+* `Image.create_empty()` + `ImageTexture.create_from_image()` (Godot 4.3+) para
+  generar la textura del círculo con borde suave en `dibujo.gd`.
 
 ---
 
