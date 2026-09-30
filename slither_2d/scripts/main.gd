@@ -16,9 +16,16 @@ extends Node2D
 ##       ├── Puntos, Ayuda, Efectos, TurboTexto
 ##       ├── TurboFondo/Relleno -> ColorRect (barra de turbo)
 ##       ├── Clasificacion      -> Label     (los 5 más largos + récord)
+##       ├── Record             -> Label     (récord y partidas jugadas)
+##       ├── Piel               -> Label     (piel actual: teclas P y O)
+##       ├── Aviso              -> Label     (avisos que se desvanecen)
 ##       ├── Minimapa           -> Control   (scripts/minimapa.gd)
 ##       ├── Audio              -> Label     ("M: silencio · MÚSICA: ON (N)")
-##       └── Final              -> Control   (pantalla de fin de partida)
+##       └── Final              -> Control   (fin de partida: resumen, mejores
+##                                            partidas y campo del apodo)
+##
+## Lo que se recuerda entre partidas (récord, estadísticas, piel y apodo) vive en
+## `scripts/records.gd` y se guarda en `user://records.cfg` (tu perfil de Godot).
 
 const ESCENA_GUSANO := preload("res://escenas/Gusano.tscn")
 const ESCENA_GUSANO_CPU := preload("res://escenas/GusanoCPU.tscn")
@@ -53,8 +60,14 @@ const SEGMENTOS_TURBO_LLENO := 20.0  ## Segmentos que llenan la barra de turbo.
 @export var intervalo_clasificacion: float = 0.25  ## Cada cuánto se refresca el marcador.
 
 var jugador: Gusano = null
+## Datos que se recuerdan entre partidas (los carga/gestiona `records.gd`).
+var datos: Dictionary = {}
 var _puntos := 0
 var _record := 0  ## Longitud máxima alcanzada en la partida.
+var _tiempo_partida := 0.0  ## Segundos de esta partida (para las estadísticas).
+var _comida_partida := 0  ## Comida que ha tragado el jugador en esta partida.
+var _bots_comidos := 0  ## Bots que ha matado el jugador en esta partida.
+var _nuevo_record := false  ## ¿Ha superado su mejor puntuación al morir?
 var _temporizador_comida := 0.0
 var _temporizador_powerup := 0.0
 var _temporizador_clasificacion := 0.0
@@ -71,12 +84,26 @@ var _generacion := 0  ## Sube al reiniciar, para que los bots viejos no reaparez
 @onready var turbo_relleno: ColorRect = $HUD/TurboFondo/Relleno
 @onready var etiqueta_clasificacion: Label = $HUD/Clasificacion
 @onready var etiqueta_audio: Label = $HUD/Audio
+@onready var etiqueta_record: Label = $HUD/Record
+@onready var etiqueta_piel: Label = $HUD/Piel
+@onready var etiqueta_aviso: Label = $HUD/Aviso
+@onready var etiqueta_estadisticas: Label = $HUD/Final/Estadisticas
+@onready var etiqueta_mejores: Label = $HUD/Final/Mejores
+@onready var campo_apodo: LineEdit = $HUD/Final/Apodo
 @onready var sonido: Sonido = $Sonido
 @onready var pantalla_final: Control = $HUD/Final
 @onready var etiqueta_final: Label = $HUD/Final/Texto
 
 
 func _ready() -> void:
+	# 1) Lo que se recuerda: récord, estadísticas, piel y apodo.
+	datos = Records.cargar()
+	if str(datos.get("nombre", "")) == "":
+		datos["nombre"] = Records.nombre_sistema()
+		Records.guardar(datos)
+	campo_apodo.text_submitted.connect(_on_apodo_escrito)
+	campo_apodo.focus_exited.connect(_guardar_apodo)
+
 	_asegurar_accion_turbo()
 	_crear_jugador()
 	for i in bots_iniciales:
@@ -89,11 +116,14 @@ func _ready() -> void:
 	_actualizar_hud()
 	_actualizar_clasificacion()
 	_actualizar_audio()
-	_actualizar_audio()
+	_actualizar_piel_hud()
+	_actualizar_piel_hud()
 	_mostrar_ayuda()
 
 
 func _process(delta: float) -> void:
+	if is_instance_valid(jugador):
+		_tiempo_partida += delta  # Estadísticas de tiempo jugado.
 	_seguir_jugador()
 	_generar_comida(delta)
 	_generar_powerups(delta)
@@ -110,19 +140,13 @@ func _input(evento: InputEvent) -> void:
 	# escena y quita el HUD), no inundamos la consola con errores por cada tecla.
 	if pantalla_final == null:
 		return
-	# Teclas de audio (se leen aquí y no en el mapa de entrada del proyecto para
-	# no tocar project.godot): M = silencio, N = música normal/bajita/apagada.
-	var tecla := evento as InputEventKey
-	if tecla != null and tecla.pressed and not tecla.echo:
-		if tecla.physical_keycode == KEY_M:
-			sonido.alternar_silencio()
-			_actualizar_audio()
-			return
-		if tecla.physical_keycode == KEY_N:
-			sonido.alternar_musica()
-			_actualizar_audio()
-			return
-
+	# Si estás escribiendo tu nombre, las teclas son para el campo (y un clic
+	# dentro de él no reinicia la partida).
+	if _clic_sobre_el_apodo(evento) or (campo_apodo != null and campo_apodo.has_focus()):
+		return
+	# Atajos de estilo y audio: M, N, P y O.
+	if _atajo_de_estilo(evento):
+		return
 	# Reinicio: ESPACIO/ENTER (acción ui_accept) o clic del ratón.
 	if not pantalla_final.visible:
 		return
@@ -131,6 +155,38 @@ func _input(evento: InputEvent) -> void:
 		es_clic = (evento as InputEventMouseButton).pressed
 	if evento.is_action_pressed("ui_accept") or es_clic:
 		_reiniciar_partida()
+
+
+## ¿El evento es un clic dentro del campo del apodo? (entonces no es un reinicio)
+func _clic_sobre_el_apodo(evento: InputEvent) -> bool:
+	var clic := evento as InputEventMouseButton
+	if clic == null or campo_apodo == null or not campo_apodo.visible:
+		return false
+	return clic.pressed and campo_apodo.get_global_rect().has_point(clic.position)
+
+
+## Teclas de estilo y audio, leídas aquí para no tocar el mapa de entrada del
+## proyecto (project.godot):
+##   M = silencio · N = música normal/bajita/apagada · P = paleta · O = patrón.
+## Devuelve true si la tecla era una de estas (y ya se ha hecho su trabajo).
+func _atajo_de_estilo(evento: InputEvent) -> bool:
+	var tecla := evento as InputEventKey
+	if tecla == null or not tecla.pressed or tecla.echo:
+		return false
+	match tecla.physical_keycode:
+		KEY_M:
+			sonido.alternar_silencio()
+			_actualizar_audio()
+		KEY_N:
+			sonido.alternar_musica()
+			_actualizar_audio()
+		KEY_P:
+			_siguiente_paleta()
+		KEY_O:
+			_siguiente_patron()
+		_:
+			return false
+	return true
 
 
 ## Crea la acción "turbo" (SHIFT o clic derecho) si no existe todavía.
@@ -234,6 +290,12 @@ func _crear_jugador() -> void:
 	gusano.color = COLOR_JUGADOR
 	gusano.segmentos_iniciales = 8
 	gusano.nombre = "TÚ"
+	gusano.semilla_piel = randi()
+	# Piel elegida (se recuerda entre partidas; ver teclas P y O).
+	gusano.aplicar_piel(
+		Pieles.colores_paleta(int(datos.get("paleta", Pieles.Paleta.CLASICO))),
+		int(datos.get("patron", Pieles.Patron.LISO))
+	)
 	gusano.sonido = sonido
 	# Grupo que usan los bots para saber dónde está "la acción".
 	gusano.add_to_group(Gusano.GRUPO_JUGADOR)
@@ -249,7 +311,12 @@ func _crear_bot() -> void:
 	var bot := ESCENA_GUSANO_CPU.instantiate() as GusanoCPU
 	bot.velocidad = velocidad_bots * randf_range(0.85, 1.15)
 	bot.separacion = separacion_segmentos * randf_range(0.95, 1.05)
-	bot.color = Color.from_hsv(randf(), 0.65, 1.0)
+	# Los bots también llevan piel (colores al azar + un patrón cualquiera), así
+	# el mundo se ve variado sin que ellos cuenten logros.
+	bot.colores_cuerpo = Pieles.colores_de_bot(randf())
+	bot.color = bot.colores_cuerpo[0]
+	bot.patron_cuerpo = Pieles.patron_aleatorio()
+	bot.semilla_piel = randi()
 	bot.segmentos_iniciales = randi_range(6, 14)
 	bot.distancia_vision = randf_range(320.0, 520.0)
 	bot.distancia_maxima_al_jugador = randf_range(900.0, 1400.0)
@@ -304,14 +371,22 @@ func _on_segmento_soltado(posicion: Vector2) -> void:
 
 
 ## Un gusano ha muerto: su cuerpo se convierte en comida.
-## `gusano` llega "atado" con bind() desde donde conectamos la señal.
-func _on_gusano_murio(posiciones: PackedVector2Array, gusano: Gusano) -> void:
+## `asesino` es contra quién chocó y `gusano` llega "atado" con bind() desde donde
+## conectamos la señal (el orden de los parámetros lo pone esa conexión).
+func _on_gusano_murio(posiciones: PackedVector2Array, asesino: Gusano, gusano: Gusano) -> void:
 	# call_deferred(): venimos de una señal de física, así que creamos los nodos
 	# de comida al final del frame en lugar de dentro del paso de física.
 	_esparcir_restos.call_deferred(posiciones)
 	_record = maxi(_record, posiciones.size())
 
+	# Estadísticas: si el muerto es un bot y lo ha provocado el jugador, cuenta.
+	if gusano != jugador and asesino == jugador:
+		_bots_comidos += 1
+
 	if gusano == jugador:
+		# Hay que apuntar sus estadísticas ANTES de perder la referencia.
+		if is_instance_valid(jugador):
+			_comida_partida = jugador.comidas_tragadas
 		jugador = null
 		_terminar_partida()
 	else:
@@ -360,6 +435,15 @@ func _actualizar_hud() -> void:
 		maxi(contenedor_gusanos.get_child_count() - (1 if is_instance_valid(jugador) else 0), 0),
 		contenedor_comida.get_child_count(),
 	]
+	# Lo que se recuerda entre partidas: mejor marca y partidas jugadas.
+	etiqueta_record.text = (
+		"Récord de la partida: %d  ·  Mejor: %d puntos y %d de largo  ·  Partidas: %d"
+	) % [
+		_record,
+		int(datos.get("record_puntos", 0)),
+		int(datos.get("record_longitud", 0)),
+		int(datos.get("partidas", 0)),
+	]
 
 
 ## Marcador con los 5 gusanos más largos y el récord de la partida.
@@ -377,13 +461,81 @@ func _actualizar_clasificacion() -> void:
 		var etiqueta := gusano.nombre if gusano.nombre != "" else "Bot"
 		var marca := "  ★ TÚ" if gusano == jugador else ""
 		lineas.append("%d. %s — %d%s" % [i + 1, etiqueta, gusano.longitud(), marca])
-	lineas.append("Récord: %d" % _record)
+	lineas.append("Mejor marca: %d puntos · %d de largo" % [
+		int(datos.get("record_puntos", 0)), int(datos.get("record_longitud", 0)),
+	])
 	etiqueta_clasificacion.text = "\n".join(lineas)
 
 
 ## Rótulo del HUD con el estado del audio (se refresca con M y con N).
 func _actualizar_audio() -> void:
 	etiqueta_audio.text = sonido.texto_estado()
+
+
+## Rótulo del HUD con la piel actual y las teclas para cambiarla.
+func _actualizar_piel_hud() -> void:
+	var paleta := int(datos.get("paleta", 0))
+	var patron := int(datos.get("patron", 0))
+	etiqueta_piel.text = "Piel: %s · %s   (P y O cambian)" % [
+		Pieles.nombre_paleta(paleta), Pieles.nombre_patron(patron),
+	]
+
+
+## Aviso grande que aparece y se desvanece (nuevo récord, piel desbloqueada...).
+func _mostrar_aviso(texto: String) -> void:
+	etiqueta_aviso.text = texto
+	etiqueta_aviso.modulate.a = 1.0
+	var tween := create_tween()
+	tween.tween_interval(2.5)
+	tween.tween_property(etiqueta_aviso, "modulate:a", 0.0, 1.5)
+
+
+## Pasa a la siguiente paleta desbloqueada y la guarda.
+func _siguiente_paleta() -> void:
+	var actual := int(datos.get("paleta", 0))
+	datos["paleta"] = Pieles.siguiente(Pieles.Tipo.PALETA, actual, datos)
+	_aplicar_piel_elegida()
+
+
+## Pasa al siguiente patrón desbloqueado y lo guarda.
+func _siguiente_patron() -> void:
+	var actual := int(datos.get("patron", 0))
+	datos["patron"] = Pieles.siguiente(Pieles.Tipo.PATRON, actual, datos)
+	_aplicar_piel_elegida()
+
+
+## Aplica la piel elegida al jugador, avisa por el HUD y la guarda.
+func _aplicar_piel_elegida() -> void:
+	if is_instance_valid(jugador):
+		jugador.aplicar_piel(
+			Pieles.colores_paleta(int(datos.get("paleta", 0))),
+			int(datos.get("patron", 0))
+		)
+	_actualizar_piel_hud()
+	_mostrar_aviso("%s  ·  %s" % [
+		Pieles.nombre_paleta(int(datos.get("paleta", 0))),
+		Pieles.nombre_patron(int(datos.get("patron", 0))),
+	])
+	sonido.tocar("powerup", camara.global_position, 1.5, -6.0)
+	Records.guardar(datos)
+
+
+## Guarda el apodo escrito en la pantalla final (Enter o al salir del campo).
+func _guardar_apodo() -> void:
+	if campo_apodo == null:
+		return
+	var limpio := campo_apodo.text.strip_edges().substr(0, Records.LARGO_APODO)
+	if limpio == "":
+		limpio = Records.nombre_sistema()
+	campo_apodo.text = limpio
+	datos["nombre"] = limpio
+	Records.guardar(datos)
+
+
+func _on_apodo_escrito(_texto: String) -> void:
+	_guardar_apodo()
+	campo_apodo.release_focus()
+	_mostrar_aviso("Apodo guardado: %s" % str(datos.get("nombre", "")))
 
 
 func _mostrar_ayuda() -> void:
@@ -393,11 +545,70 @@ func _mostrar_ayuda() -> void:
 	tween.tween_property(etiqueta_ayuda, "modulate:a", 0.0, 1.5)
 
 
+## Guarda el resultado de la partida en el récord y avisa de los desbloqueos.
+func _guardar_resultados() -> void:
+	# Antes de tocar nada: qué había desbloqueado (para saber qué es nuevo).
+	var paletas_antes := Pieles.desbloqueadas(Pieles.Tipo.PALETA, datos)
+	var patrones_antes := Pieles.desbloqueadas(Pieles.Tipo.PATRON, datos)
+
+	_nuevo_record = _puntos > int(datos.get("record_puntos", 0))
+	datos["record_puntos"] = maxi(_puntos, int(datos.get("record_puntos", 0)))
+	datos["record_longitud"] = maxi(_record, int(datos.get("record_longitud", 0)))
+	datos["partidas"] = int(datos.get("partidas", 0)) + 1
+	datos["comida"] = int(datos.get("comida", 0)) + _comida_partida
+	datos["bots"] = int(datos.get("bots", 0)) + _bots_comidos
+	datos["tiempo"] = float(datos.get("tiempo", 0.0)) + _tiempo_partida
+	var mejores: Array = datos.get("mejores", []) as Array
+	mejores = Records.agregar_mejor(mejores, {
+		"puntos": _puntos,
+		"longitud": _record,
+		"fecha": Records.fecha_de_hoy(),
+		"nombre": str(datos.get("nombre", "TÚ")),
+	})
+	datos["mejores"] = mejores
+	Records.guardar(datos)
+	_avisar_nuevos_desbloqueos(paletas_antes, patrones_antes)
+
+
+## Compara los desbloqueos de antes y de después y avisa de lo nuevo.
+func _avisar_nuevos_desbloqueos(
+	antes_paletas: PackedInt32Array, antes_patrones: PackedInt32Array
+) -> void:
+	var avisos := PackedStringArray()
+	for i in Pieles.cantidad_paletas():
+		if not antes_paletas.has(i) and Pieles.desbloqueada(Pieles.Tipo.PALETA, i, datos):
+			avisos.append("¡PALETA DESBLOQUEADA! %s" % Pieles.nombre_paleta(i))
+	for i in Pieles.cantidad_patrones():
+		if not antes_patrones.has(i) and Pieles.desbloqueada(Pieles.Tipo.PATRON, i, datos):
+			avisos.append("¡PATRÓN DESBLOQUEADO! %s" % Pieles.nombre_patron(i))
+	if avisos.is_empty():
+		return
+	_mostrar_aviso("  ·  ".join(avisos))
+	sonido.tocar("nueva_partida", camara.global_position)
+
+
 func _terminar_partida() -> void:
+	_guardar_resultados()
+
+	var apodo := str(datos.get("nombre", "TÚ"))
+	var extra := "\n¡NUEVO RÉCORD DE PUNTOS!" if _nuevo_record else ""
 	etiqueta_final.text = (
-		"¡TE HAN COMIDO!\n\nPuntos: %d\nLongitud récord: %d\n\n"
+		"¡TE HAN COMIDO, %s!\n\nPuntos: %d%s\nLongitud: %d\n\n"
 		+ "Pulsa ESPACIO o haz clic para volver a jugar"
-	) % [_puntos, _record]
+	) % [apodo.to_upper(), _puntos, extra, _record]
+	etiqueta_estadisticas.text = (
+		"Partidas: %d  ·  Comida: %d  ·  Bots: %d  ·  Tiempo jugado: %s\n"
+		+ "Récord: %d puntos · %d de largo"
+	) % [
+		int(datos.get("partidas", 0)),
+		int(datos.get("comida", 0)),
+		int(datos.get("bots", 0)),
+		Records.texto_tiempo(float(datos.get("tiempo", 0.0))),
+		int(datos.get("record_puntos", 0)),
+		int(datos.get("record_longitud", 0)),
+	]
+	etiqueta_mejores.text = Records.texto_mejores(datos.get("mejores", []) as Array)
+	campo_apodo.text = apodo
 	pantalla_final.visible = true
 	# Golpe grave de cierre, además del sonido de muerte del gusano. Suena donde
 	# está la cámara (el gusano ya no existe, pero la cámara sigue ahí).
@@ -407,8 +618,13 @@ func _terminar_partida() -> void:
 func _reiniciar_partida() -> void:
 	_generacion += 1
 	pantalla_final.visible = false
+	campo_apodo.release_focus()
 	_puntos = 0
 	_record = 0
+	_tiempo_partida = 0.0
+	_comida_partida = 0
+	_bots_comidos = 0
+	_nuevo_record = false
 	_temporizador_powerup = 0.0
 
 	# Vaciamos el mundo. Marcamos a los gusanos como muertos para que dejen de

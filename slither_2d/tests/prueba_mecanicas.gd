@@ -26,9 +26,12 @@ extends Node
 ##  10) los power-ups se generan en el mundo,
 ##  11) los sonidos se generan (efectos + música, sin ningún archivo de audio),
 ##  12) comer dispara el audio (se enciende un reproductor del pool),
-##  13) el HUD nuevo (minimapa, clasificación y barra de turbo) existe,
-##  14) morir al chocar con el cuerpo de OTRO gusano,
-##  15) los restos: una comida en cada posición del cuerpo del muerto.
+##  13) las pieles cambian colores y patrones,
+##  14) los logros desbloquean paletas y patrones,
+##  15) el HUD nuevo (minimapa, clasificación, barra de turbo...) existe,
+##  16) morir al chocar con el cuerpo de OTRO gusano,
+##  17) los restos: una comida en cada posición del cuerpo del muerto,
+##  18) el récord, las estadísticas y el top 5 se guardan (idea 8D y 8E).
 
 const RUTA_MAIN := "res://escenas/Main.tscn"
 const RUTA_COMIDA := "res://escenas/Comida.tscn"
@@ -49,9 +52,15 @@ const SCRIPTS_DEL_JUEGO := [
 	"res://scripts/gusano_cpu.gd",
 	"res://scripts/fondo.gd",
 	"res://scripts/minimapa.gd",
+	"res://scripts/pieles.gd",
+	"res://scripts/records.gd",
 	"res://scripts/sonido.gd",
 	"res://scripts/main.gd",
 ]
+
+## Ruta del récord que usan las pruebas: así NO se toca el récord de verdad del
+## jugador (que vive en user://records.cfg).
+const RUTA_RECORDS_PRUEBA := "user://records_prueba.cfg"
 
 ## Efectos que se comprueban en la comprobación 14 (nombre -> duración en segundos).
 const EFECTOS_DE_SONIDO := {
@@ -69,6 +78,7 @@ var _fallos := 0
 var _murio := false
 var _posiciones_restos := PackedVector2Array()
 var _segmentos_soltados := 0  ## Cuántas veces el turbo ha gastado un segmento.
+var _ruta_records_real := ""  ## Ruta real del récord, para restaurarla al terminar.
 
 
 func _ready() -> void:
@@ -80,6 +90,10 @@ func _ready() -> void:
 	])
 	print("===============================================================")
 	await _ejecutar()
+	# Se borra el récord de prueba y se deja el del jugador como estaba (esto se
+	# hace aquí para que ocurra incluso si _ejecutar() ha salido antes de tiempo).
+	Records.borrar()
+	Records.ruta = _ruta_records_real
 	print("---------------------------------------------------------------")
 	if _fallos == 0:
 		print("  RESULTADO: %d/%d comprobaciones OK   ✔  TODO BIEN" % [_total, _total])
@@ -93,6 +107,12 @@ func _ready() -> void:
 
 
 func _ejecutar() -> void:
+	# Las pruebas escriben en un archivo de récord temporal: el del jugador no se
+	# toca (al terminar se restaura la ruta y se borra el temporal).
+	_ruta_records_real = Records.ruta
+	Records.ruta = RUTA_RECORDS_PRUEBA
+	Records.borrar()
+
 	# ---------------------------------------- 0) ¿Cargan todos los scripts?
 	var rotos := PackedStringArray()
 	for ruta in SCRIPTS_DEL_JUEGO:
@@ -200,10 +220,10 @@ func _ejecutar() -> void:
 			grosores_iguales = false
 	# El afilado de cola sigue disponible como opción: comprobamos que funciona.
 	gusano.cola_afilada_segmentos = 8
-	gusano._actualizar_grosores()
+	gusano._actualizar_cuerpo()
 	var radio_ultimo: float = gusano._segmentos[gusano._segmentos.size() - 1].radio
 	gusano.cola_afilada_segmentos = 0  # Y lo volvemos a dejar uniforme.
-	gusano._actualizar_grosores()
+	gusano._actualizar_cuerpo()
 	_comprobar(
 		"6) El cuerpo tiene un solo grosor",
 		grosores_iguales and is_equal_approx(radio_primero, radio_cabeza)
@@ -336,10 +356,70 @@ func _ejecutar() -> void:
 		]
 	)
 
-	# -------------------------------------------- 13) HUD nuevo
+	# ------------------------ 13) Las pieles cambian colores y patrones
+	var colores_clasico := Pieles.colores_paleta(Pieles.Paleta.CLASICO)
+	var colores_fuego := Pieles.colores_paleta(Pieles.Paleta.FUEGO)
+	var liso := Pieles.color_de_segmento(colores_clasico, Pieles.Patron.LISO, 3, 20, 7)
+	var rayas := Pieles.color_de_segmento(colores_clasico, Pieles.Patron.RAYAS, 3, 20, 7)
+	var degradado_inicio := Pieles.color_de_segmento(
+		colores_clasico, Pieles.Patron.DEGRADADO, 0, 20, 7
+	)
+	var degradado_final := Pieles.color_de_segmento(
+		colores_clasico, Pieles.Patron.DEGRADADO, 19, 20, 7
+	)
+	# Y en un gusano de verdad: la piel se aplica a todo el cuerpo al momento.
+	gusano.aplicar_piel(colores_fuego, Pieles.Patron.RAYAS)
+	var colores_del_cuerpo := PackedColorArray()
+	for segmento in gusano._segmentos:
+		colores_del_cuerpo.append(segmento.color)
+	var cuerpo_variado := colores_del_cuerpo.size() >= 2 \
+		and colores_del_cuerpo[0] != colores_del_cuerpo[1]
+	var cabeza_a_juego := gusano.color == colores_fuego[0]
+	gusano.aplicar_piel(Pieles.colores_paleta(Pieles.Paleta.CLASICO), Pieles.Patron.LISO)
+	_comprobar(
+		"13) Las pieles cambian colores y patrones",
+		liso != rayas and degradado_inicio != degradado_final
+			and colores_clasico[0] != colores_fuego[0]
+			and cuerpo_variado and cabeza_a_juego,
+		"liso %s vs rayas %s | degradado %s -> %s | cuerpo de dos colores: %s | cabeza a juego: %s" % [
+			liso.to_html(false), rayas.to_html(false),
+			degradado_inicio.to_html(false), degradado_final.to_html(false),
+			"sí" if cuerpo_variado else "NO",
+			"sí" if cabeza_a_juego else "NO",
+		]
+	)
+
+	# ------------------------------ 14) Los logros desbloquean pieles
+	var sin_logros: Dictionary = {}
+	var con_todo: Dictionary = {
+		"comida": 999, "bots": 999, "partidas": 999,
+		"record_puntos": 9999, "record_longitud": 999, "tiempo": 99999.0,
+	}
+	var paletas_libres := Pieles.desbloqueadas(Pieles.Tipo.PALETA, sin_logros)
+	var paletas_todas := Pieles.desbloqueadas(Pieles.Tipo.PALETA, con_todo)
+	var patrones_todos := Pieles.desbloqueadas(Pieles.Tipo.PATRON, con_todo)
+	var oro_bloqueada := not Pieles.desbloqueada(Pieles.Tipo.PALETA, Pieles.Paleta.ORO, sin_logros)
+	var siguiente_libre := Pieles.siguiente(Pieles.Tipo.PALETA, 0, con_todo)
+	_comprobar(
+		"14) Los logros desbloquean paletas y patrones",
+		paletas_libres.size() >= 1 and paletas_libres.size() < Pieles.cantidad_paletas()
+			and paletas_todas.size() == Pieles.cantidad_paletas()
+			and patrones_todos.size() == Pieles.cantidad_patrones()
+			and oro_bloqueada and siguiente_libre == 1,
+		"sin logros: %d/%d paletas | con todo: %d/%d paletas y %d/%d patrones | requisito del Oro: %s" % [
+			paletas_libres.size(), Pieles.cantidad_paletas(),
+			paletas_todas.size(), Pieles.cantidad_paletas(),
+			patrones_todos.size(), Pieles.cantidad_patrones(),
+			Pieles.requisito(Pieles.Tipo.PALETA, Pieles.Paleta.ORO),
+		]
+	)
+
+	# -------------------------------------------- 15) HUD nuevo
 	var faltan_hud := PackedStringArray()
 	for ruta_hud in [
 		"HUD/Minimapa", "HUD/Clasificacion", "HUD/TurboFondo/Relleno", "HUD/Efectos", "HUD/Audio",
+		"HUD/Record", "HUD/Piel", "HUD/Aviso",
+		"HUD/Final/Estadisticas", "HUD/Final/Mejores", "HUD/Final/Apodo",
 	]:
 		if main.get_node_or_null(ruta_hud) == null:
 			faltan_hud.append(ruta_hud)
@@ -348,7 +428,7 @@ func _ejecutar() -> void:
 	if clasificacion != null:
 		clasificacion_ok = clasificacion.text.contains("CLASIFICACIÓN")
 	_comprobar(
-		"13) HUD: minimapa, clasificación y barra de turbo",
+		"15) HUD: minimapa, clasificación, récord, piel y apodo",
 		faltan_hud.is_empty() and clasificacion_ok,
 		"nodos del HUD: %s | clasificación: %s" % [
 			"todos" if faltan_hud.is_empty() else "faltan " + ", ".join(faltan_hud),
@@ -366,7 +446,7 @@ func _ejecutar() -> void:
 	# de restos (que es una resta) sale descuadrado.
 	await _esperar_fisica(12)
 
-	# ------------------------------ 14 y 15) Muerte por otro cuerpo y restos
+	# ------------------------------ 16 y 17) Muerte por otro cuerpo y restos
 	# Espía de la señal: comprobamos la muerte por lo que EMITE el gusano, no
 	# leyendo un nodo que puede haberse liberado con queue_free().
 	_murio = false
@@ -383,7 +463,7 @@ func _ejecutar() -> void:
 	await _esperar_fisica(4)
 
 	_comprobar(
-		"14) La cabeza muere al tocar el cuerpo de otro gusano",
+		"16) La cabeza muere al tocar el cuerpo de otro gusano",
 		_murio and not is_instance_valid(gusano) and is_instance_valid(otro) and not otro.muerto,
 		"señal 'murio' recibida: %s | jugador liberado: %s | el otro gusano sigue vivo: %s" % [
 			"sí" if _murio else "NO",
@@ -405,7 +485,7 @@ func _ejecutar() -> void:
 	# o dejado de comer nadie antes.
 	var esperadas := _posiciones_restos.size()
 	_comprobar(
-		"15) Restos: una comida por cada parte del cuerpo",
+		"17) Restos: una comida por cada parte del cuerpo",
 		comidas_despues - comidas_antes == esperadas
 			and esperadas == largo_al_morir
 			and restos_creados == esperadas,
@@ -413,6 +493,46 @@ func _ejecutar() -> void:
 			+ "comida en cada punto del rastro: %d/%d") % [
 			comidas_despues - comidas_antes, esperadas, largo_al_morir,
 			restos_creados, esperadas,
+		]
+	)
+
+	# ------------- 18) El récord, las estadísticas y el top 5 se guardan
+	# (a) El mundo guardó la partida al morir el jugador (comprobación 16).
+	var guardado := Records.cargar()
+	var mejores_guardadas: Array = guardado.get("mejores", []) as Array
+	# (b) Ida y vuelta a mano: se escribe, se relee y el top 5 queda ordenado y
+	#     recortado a MAX_MEJORES (7 partidas metidas, solo deben quedar 5).
+	var datos_prueba: Dictionary = Records.por_defecto()
+	datos_prueba["record_puntos"] = 321
+	datos_prueba["paleta"] = 2
+	datos_prueba["nombre"] = "PROBADOR"
+	var lista: Array = []
+	for i in 7:
+		lista = Records.agregar_mejor(lista, {
+			"puntos": 10 * (i + 1), "longitud": i, "fecha": "01/01/2026", "nombre": "PROBADOR",
+		})
+	datos_prueba["mejores"] = lista
+	Records.guardar(datos_prueba)
+	var releidos := Records.cargar()
+	var mejores_releidas: Array = releidos.get("mejores", []) as Array
+	var primera: Dictionary = mejores_releidas[0] if not mejores_releidas.is_empty() else {}
+	var guardado_al_morir := int(guardado.get("partidas", 0)) >= 1 and mejores_guardadas.size() >= 1
+	_comprobar(
+		"18) El récord, las estadísticas y el top 5 se guardan",
+		guardado_al_morir
+			and int(releidos.get("record_puntos", 0)) == 321
+			and int(releidos.get("paleta", 0)) == 2
+			and str(releidos.get("nombre", "")) == "PROBADOR"
+			and mejores_releidas.size() == Records.MAX_MEJORES
+			and int(primera.get("puntos", 0)) == 70,
+		("partida guardada al morir: %s | récord releído: %d puntos | paleta: %d | "
+			+ "apodo: %s | top %d (la 1ª con %d puntos)") % [
+			"sí" if guardado_al_morir else "NO",
+			int(releidos.get("record_puntos", 0)),
+			int(releidos.get("paleta", 0)),
+			str(releidos.get("nombre", "")),
+			mejores_releidas.size(),
+			int(primera.get("puntos", 0)),
 		]
 	)
 
@@ -442,8 +562,9 @@ func _on_segmento_soltado_prueba(_posicion: Vector2) -> void:
 	_segmentos_soltados += 1
 
 
-## Guarda lo que emite el gusano al morir (se conecta en la comprobación 12).
-func _on_gusano_murio_prueba(posiciones: PackedVector2Array) -> void:
+## Guarda lo que emite el gusano al morir (se conecta en la comprobación 16).
+## El segundo parámetro es el asesino que añade `gusano.gd`; aquí no se usa.
+func _on_gusano_murio_prueba(posiciones: PackedVector2Array, _asesino: Gusano) -> void:
 	_murio = true
 	_posiciones_restos = posiciones
 

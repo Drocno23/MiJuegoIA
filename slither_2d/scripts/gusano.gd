@@ -30,7 +30,7 @@ extends Node2D
 
 ## Emitida al morir. Lleva las posiciones exactas de todos los segmentos para que
 ## el mundo (main.gd) convierta el cuerpo en comida.
-signal murio(posiciones_restos: PackedVector2Array)
+signal murio(posiciones_restos: PackedVector2Array, asesino: Gusano)
 ## Emitida al comer: puntos acumulados y longitud total (cabeza + segmentos).
 signal puntuacion_cambiada(puntos: int, longitud: int)
 ## Emitida cuando el turbo gasta un segmento. El mundo lo convierte en comida
@@ -73,6 +73,11 @@ const MAX_PASOS_FRAME := 8  ## Límite de seguridad al muestrear el camino.
 ## Ponlo en false para volver al draw_circle() clásico.
 @export var bordes_suaves: bool = true
 @export var nombre: String = ""  ## Nombre en la clasificación ("TÚ", "Bot 3"...).
+## PIEL: colores del cuerpo (el primero es el de la cabeza) y patrón que decide
+## qué color le toca a cada segmento. Se configuran con `aplicar_piel()` y el
+## jugador los elige con las teclas P (paleta) y O (patrón); ver `pieles.gd`.
+@export var colores_cuerpo := PackedColorArray([Color("4be36a"), Color("2f9e4d"), Color("a8fffe")])
+@export var patron_cuerpo: int = Pieles.Patron.LISO  ## Usa las constantes `Pieles.Patron.*`.
 
 @export_group("Reglas")
 ## Segundos al nacer en los que no puede morir (evita muertes absurdas al aparecer).
@@ -83,6 +88,9 @@ var muerto: bool = false
 var direccion: Vector2 = Vector2.RIGHT  ## Dirección actual de avance de la cabeza.
 ## Nodo de audio del mundo (lo pone `main.gd`; si no está, se busca en el grupo).
 var sonido: Sonido = null
+## Semilla de las "motas" del patrón: cada gusano las tiene en sitios distintos.
+var semilla_piel: int = 0
+var comidas_tragadas: int = 0  ## Comida normal tragada (sin power-ups): para las estadísticas.
 
 var _segmentos: Array[CuerpoSegmento] = []  ## Índice 0 = primer segmento (pegado a la cabeza).
 var _ruta := PackedVector2Array()  ## Camino recorrido. Índice 0 = punto más reciente.
@@ -233,7 +241,7 @@ func _quitar_ultimo_segmento() -> void:
 	var ultimo: CuerpoSegmento = _segmentos.pop_back()
 	segmento_soltado.emit(ultimo.global_position)
 	ultimo.queue_free()
-	_actualizar_grosores()
+	_actualizar_cuerpo()
 
 
 # ---------------------------------------------------------------------------
@@ -292,7 +300,7 @@ func _agregar_segmento(animar: bool = true) -> void:
 	# Estas propiedades hay que asignarlas ANTES de add_child(), porque _ready()
 	# del segmento es quien las aplica a la forma de colisión y al dibujo.
 	segmento.radio = radio  # Un solo grosor: el cuerpo mide lo mismo que la cabeza.
-	segmento.color = color
+	segmento.color = _color_de_segmento(_segmentos.size())  # Color según la piel.
 	segmento.bordes_suaves = bordes_suaves  # El cuerpo hereda el ajuste de la cabeza.
 	segmento.dueno = self
 	segmento.animar_aparicion = animar
@@ -300,7 +308,7 @@ func _agregar_segmento(animar: bool = true) -> void:
 	# Después de add_child() ya tiene padre, así que global_position es correcto.
 	segmento.global_position = _punto_detras((float(_segmentos.size()) + 1.0) * separacion)
 	_segmentos.append(segmento)
-	_actualizar_grosores()
+	_actualizar_cuerpo()
 
 
 ## Radio que le toca a cada segmento. Por defecto el cuerpo entero tiene el
@@ -316,11 +324,31 @@ func _radio_de_segmento(indice: int) -> float:
 	return radio * lerpf(1.0, grosor_cola, clampf(t, 0.0, 1.0))
 
 
-## Reaplica el grosor a todos los segmentos. Se llama solo cuando cambia el
-## número de segmentos (no en cada frame: cambiar el radio actualiza la forma).
-func _actualizar_grosores() -> void:
+## Reaplica grosor y color a todos los segmentos. Se llama solo cuando cambia el
+## número de segmentos o la piel (no en cada frame: cambiar el radio o el color
+## obliga a recalcular la forma de colisión y a repintar).
+func _actualizar_cuerpo() -> void:
 	for i in _segmentos.size():
 		_segmentos[i].radio = _radio_de_segmento(i)
+		_segmentos[i].color = _color_de_segmento(i)
+
+
+## Color que le toca a un segmento con la piel actual (paleta + patrón).
+func _color_de_segmento(indice: int) -> Color:
+	return Pieles.color_de_segmento(
+		colores_cuerpo, patron_cuerpo, indice, _segmentos.size(), semilla_piel
+	)
+
+
+## Aplica una piel al momento (lo usan las teclas P/O del mundo). El primer color
+## es el de la cabeza y el que se ve en el minimapa.
+func aplicar_piel(colores: PackedColorArray, patron: int) -> void:
+	if not colores.is_empty():
+		colores_cuerpo = colores
+		color = colores_cuerpo[0]
+	patron_cuerpo = clampi(patron, 0, Pieles.cantidad_patrones() - 1)
+	_actualizar_cuerpo()
+	queue_redraw()
 
 
 ## Longitud total del gusano (la cabeza cuenta como 1).
@@ -367,6 +395,7 @@ func _comer(comida: Comida) -> void:
 		if sonido != null:
 			sonido.tocar("powerup", global_position)
 	else:
+		comidas_tragadas += 1  # Estadísticas: comida normal (y restos).
 		crecer_diferido(comida.segmentos)  # Diferido: estamos dentro de la física.
 		if sonido != null:
 			sonido.tocar("comer", global_position, _tono_comida())
@@ -460,7 +489,7 @@ func _chocar_con_cuerpo(segmento: CuerpoSegmento) -> void:
 	var otro := segmento.dueno
 	if otro == self or not is_instance_valid(otro):
 		return
-	morir()
+	morir(otro as Gusano)  # `otro` es quien te ha cortado el paso.
 
 
 # ---------------------------------------------------------------------------
@@ -468,7 +497,8 @@ func _chocar_con_cuerpo(segmento: CuerpoSegmento) -> void:
 # ---------------------------------------------------------------------------
 
 ## Muere: avisa al mundo con las posiciones exactas de sus segmentos y desaparece.
-func morir() -> void:
+## `asesino` es el gusano contra cuyo cuerpo ha chocado (puede ser null).
+func morir(asesino: Gusano = null) -> void:
 	if muerto:
 		return
 	muerto = true
@@ -495,8 +525,9 @@ func morir() -> void:
 	for segmento in _segmentos:
 		segmento.set_deferred("monitorable", false)
 
-	# d) Avisamos al mundo: main.gd crea una Comida en cada posición.
-	murio.emit(posiciones)
+	# d) Avisamos al mundo: main.gd crea una Comida en cada posición y apunta
+	#    quién la ha provocado (para las estadísticas de "bots comidos").
+	murio.emit(posiciones, asesino)
 
 	# e) Nos ocultamos y liberamos.
 	visible = false

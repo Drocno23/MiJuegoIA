@@ -22,7 +22,8 @@ Prototipo 2D tipo [slither.io](http://slither.io) dentro de un espacio "infinito
    para el **TURBO**. Cuando mueras, **ESPACIO** o clic para reiniciar.
 
 Controles: **ratón** = dirigir · **SHIFT / clic derecho** = turbo · **ESPACIO / clic** =
-reiniciar · **M** = silencio · **N** = música (normal → bajita → apagada).
+reiniciar · **M** = silencio · **N** = música (normal → bajita → apagada) ·
+**P** = paleta de color · **O** = patrón del cuerpo (las pieles que tengas desbloqueadas).
 
 > 🔉 **El juego suena, y no hay ni un archivo de audio**: los efectos y la música se
 > generan por código (`scripts/sonido.gd`). Ver "Sonido" más abajo.
@@ -39,7 +40,7 @@ reiniciar · **M** = silencio · **N** = música (normal → bajita → apagada)
 
 ### ✅ Comprobar que todo funciona
 
-Prueba automática de las 16 comprobaciones (sin abrir ventana, unos segundos):
+Prueba automática de las 19 comprobaciones (sin abrir ventana, unos segundos):
 primero que los scripts cargan, y después las mecánicas una por una.
 
 ```bash
@@ -103,6 +104,8 @@ slither_2d/
 | `fondo.gd` | **`Node2D`** hijo de Main | `escenas/Main.tscn` |
 | `minimapa.gd` | **`Control`** hijo de `HUD` | `escenas/Main.tscn` |
 | `sonido.gd` | **`Node2D`** hijo de Main (crea sus propios reproductores) | `escenas/Main.tscn` |
+| `pieles.gd` | *a ningún nodo*: catálogo de paletas/patrones y logros (utilidades estáticas) | — |
+| `records.gd` | *a ningún nodo*: récord, estadísticas y apodo en `user://records.cfg` | — |
 | `dibujo.gd` | *a ningún nodo*: es una clase de utilidades estáticas (`Dibujo.disco(...)`) | — |
 
 Árbol de `Gusano.tscn`:
@@ -329,6 +332,61 @@ Detalles pensados a propósito:
   y `distancia_audible`. El número de voces simultáneas es la constante `VOCES` (6)
   del script `sonido.gd`.
 
+### 11) Pieles: paletas, patrones y logros (`pieles.gd`)
+
+Una **piel** = una paleta de 3 colores + un patrón que decide el color de cada
+segmento. Como todo lo demás del proyecto, se calcula por código (nada de imágenes):
+
+| Patrón | Qué hace |
+|---|---|
+| **Liso** | Todo el cuerpo del color base |
+| **Rayas** | Un segmento sí y otro no, en el color claro |
+| **Anillos** | Cada 3 segmentos, uno oscuro |
+| **Degradado** | Del color base al oscuro a lo largo del cuerpo |
+| **Motas** | Manchas repartidas con un ruido **estable** (siempre en el mismo sitio) |
+| **Bicolor** | Mitad del cuerpo de un color y mitad de otro |
+
+**Teclas**: **P** pasa a la siguiente paleta desbloqueada y **O** al siguiente patrón
+(se aplican al momento y se guardan). Los **bots** también llevan piel al azar: cada
+partida se ve distinta. El color de la cabeza (y el del minimapa) es el primer color
+de la paleta.
+
+Las pieles se **desbloquean con logros** (8C), que se miran contra tus estadísticas
+guardadas:
+
+| Piel | Cómo se consigue |
+|---|---|
+| Clásico, Liso y Rayas | de serie |
+| Neón | Cómete 25 comidas |
+| Anillos | Cómete 50 comidas |
+| Hielo | Llega a 25 de longitud |
+| Degradado | Llega a 40 de longitud |
+| Motas | Cómete 3 bots |
+| Fuego | Cómete 5 bots |
+| Selva | Juega 10 partidas |
+| Bicolor | Juega 15 partidas |
+| Oro | Haz 300 puntos |
+
+Cuando desbloqueas algo, sale un aviso en el HUD al morir y suena un arpegio. Al
+pasar por encima de una piel bloqueada con P, `Pieles.requisito()` te dice qué falta.
+
+### 12) Récord, estadísticas y apodo (`records.gd`)
+
+Todo esto **se recuerda entre partidas** en `user://records.cfg` (con `ConfigFile`;
+está en tu perfil de Godot, no en el repositorio, así que puedes editarlo o borrarlo
+sin miedo):
+
+* **Récord de puntos y de longitud** ("Mejor: ..." en el HUD) y **"¡NUEVO RÉCORD!"**
+  cuando superas tu marca al morir.
+* **Estadísticas**: partidas jugadas, comida total, bots comidos y tiempo jugado.
+* **Top 5 de tus mejores partidas** (puntos, longitud y fecha), en la pantalla final,
+  estilo arcade.
+* **Tu apodo**: por defecto el usuario de tu sistema; se cambia escribiéndolo en la
+  pantalla de muerte (campo "Tu apodo:") y sale en la tabla de mejores partidas.
+
+> 💡 El archivo se llama `records.cfg` y está en
+> `~/.local/share/godot/app_userdata/<proyecto>/`. Borrarlo = empezar de cero.
+
 ---
 
 ## 🤖 Bots (`gusano_cpu.gd`)
@@ -376,6 +434,9 @@ Su IA (toma una decisión cada 0.15 s, no en cada frame):
 * **Volumen del juego**: `Sonido → volumen_efectos` y `volumen_musica` (dB; -80 es mudo).
   También puedes bajar el volumen del canal en Ajustes del sistema, o pulsar **M**.
 * **Alcance del audio 2D**: `Sonido → distancia_audible` (900 px).
+* **Empezar de cero (récord y pieles)**: borra `records.cfg` (ver arriba).
+* **Achicar los logros** (si tardan mucho): las cantidades están en `pieles.gd`,
+  en el diccionario `logros` (por ejemplo `comida_25` → `cantidad: 25`).
 
 ---
 
@@ -444,8 +505,8 @@ Pendientes (por orden de resultado/esfuerzo):
 
 * **"Juice"**: partículas al comer y al morir, y un pequeño temblor de cámara.
 * ~~Sonido~~ ✅ hecho: efectos **y música** generados por código (`scripts/sonido.gd`).
-* **Pieles y estadísticas**: patrones de color y récord de puntos guardado en
-  `user://records.cfg` (con `ConfigFile`).
+* ~~Pieles y estadísticas~~ ✅ hecho: paletas + patrones con desbloqueo por logros,
+  récord y estadísticas que se recuerdan, top 5 de mejores partidas y apodo.
 * **Bots con personalidad**: recolector, cazador (te persigue) y cobarde, elegidos
   en `_elegir_decision()`.
 * **Segundo jugador local**: WASD en la misma pantalla y cámara dividida (o el

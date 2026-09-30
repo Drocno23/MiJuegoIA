@@ -34,6 +34,15 @@ theme_override_colors/font_color = Color(1, 1, 1, 0.92)
 theme_override_font_sizes/font_size = 22
 text = "PUNTOS: 0"
 
+[node name="Record" type="Label" parent="HUD"]
+offset_left = 20.0
+offset_top = 44.0
+offset_right = 980.0
+offset_bottom = 68.0
+theme_override_colors/font_color = Color(0.85, 0.9, 1, 0.75)
+theme_override_font_sizes/font_size = 16
+text = "Récord de la partida: 0"
+
 [node name="Clasificacion" type="Label" parent="HUD"]
 anchor_left = 0.5
 anchor_right = 0.5
@@ -45,6 +54,18 @@ grow_horizontal = 2
 theme_override_colors/font_color = Color(1, 1, 1, 0.85)
 theme_override_font_sizes/font_size = 18
 text = "CLASIFICACIÓN"
+horizontal_alignment = 1
+
+[node name="Aviso" type="Label" parent="HUD"]
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -420.0
+offset_top = 176.0
+offset_right = 420.0
+offset_bottom = 210.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(1, 0.95, 0.6, 1)
+theme_override_font_sizes/font_size = 20
 horizontal_alignment = 1
 
 [node name="Minimapa" type="Control" parent="HUD"]
@@ -68,6 +89,18 @@ offset_bottom = -52.0
 grow_vertical = 0
 theme_override_colors/font_color = Color(0.75, 1, 0.85, 1)
 theme_override_font_sizes/font_size = 18
+
+[node name="Piel" type="Label" parent="HUD"]
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = -100.0
+offset_right = 640.0
+offset_bottom = -78.0
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.9, 0.85, 1, 0.85)
+theme_override_font_sizes/font_size = 16
+text = "Piel: Clásico · Liso   (P y O cambian)"
 
 [node name="TurboTexto" type="Label" parent="HUD"]
 anchor_top = 1.0
@@ -152,14 +185,81 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -420.0
-offset_top = -160.0
-offset_right = 420.0
-offset_bottom = 160.0
+offset_left = -520.0
+offset_top = -280.0
+offset_right = 520.0
+offset_bottom = -40.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_colors/font_color = Color(1, 0.85, 0.6, 1)
-theme_override_font_sizes/font_size = 34
+theme_override_font_sizes/font_size = 32
 text = "¡TE HAN COMIDO!"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="Estadisticas" type="Label" parent="HUD/Final"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -520.0
+offset_top = -34.0
+offset_right = 520.0
+offset_bottom = 6.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.85, 0.92, 1, 0.9)
+theme_override_font_sizes/font_size = 17
+text = "Partidas: 0  ·  Comida: 0  ·  Bots: 0  ·  Tiempo jugado: 0 s"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Mejores" type="Label" parent="HUD/Final"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -520.0
+offset_top = 14.0
+offset_right = 520.0
+offset_bottom = 170.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.75, 1, 0.9, 0.92)
+theme_override_font_sizes/font_size = 17
+text = "TUS MEJORES PARTIDAS"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ApodoTexto" type="Label" parent="HUD/Final"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = 186.0
+offset_right = -20.0
+offset_bottom = 212.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_font_sizes/font_size = 17
+text = "Tu apodo:"
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="Apodo" type="LineEdit" parent="HUD/Final"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -10.0
+offset_top = 184.0
+offset_right = 300.0
+offset_bottom = 214.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 17
+placeholder_text = "escribe tu apodo"
+max_length = 16
+alignment = 1
