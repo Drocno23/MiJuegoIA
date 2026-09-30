@@ -11,11 +11,13 @@ extends Node2D
 ##   ├── ContenedorComida -> Node2D      (aquí se añaden comidas y power-ups)
 ##   ├── Gusanos          -> Node2D      (aquí se añaden el jugador y los bots)
 ##   ├── Camara           -> Camera2D    (sigue al jugador)
+##   ├── Sonido           -> Node2D      (scripts/sonido.gd: audio generado por código)
 ##   └── HUD              -> CanvasLayer
 ##       ├── Puntos, Ayuda, Efectos, TurboTexto
 ##       ├── TurboFondo/Relleno -> ColorRect (barra de turbo)
 ##       ├── Clasificacion      -> Label     (los 5 más largos + récord)
 ##       ├── Minimapa           -> Control   (scripts/minimapa.gd)
+##       ├── Audio              -> Label     ("M: silencio · MÚSICA: ON (N)")
 ##       └── Final              -> Control   (pantalla de fin de partida)
 
 const ESCENA_GUSANO := preload("res://escenas/Gusano.tscn")
@@ -68,6 +70,8 @@ var _generacion := 0  ## Sube al reiniciar, para que los bots viejos no reaparez
 @onready var etiqueta_turbo: Label = $HUD/TurboTexto
 @onready var turbo_relleno: ColorRect = $HUD/TurboFondo/Relleno
 @onready var etiqueta_clasificacion: Label = $HUD/Clasificacion
+@onready var etiqueta_audio: Label = $HUD/Audio
+@onready var sonido: Sonido = $Sonido
 @onready var pantalla_final: Control = $HUD/Final
 @onready var etiqueta_final: Label = $HUD/Final/Texto
 
@@ -81,8 +85,11 @@ func _ready() -> void:
 		_aparecer_comida()
 	if powerups_activos and powerup_al_empezar:
 		_aparecer_powerup()
+	sonido.tocar("nueva_partida", jugador.global_position if jugador != null else Vector2.ZERO)
 	_actualizar_hud()
 	_actualizar_clasificacion()
+	_actualizar_audio()
+	_actualizar_audio()
 	_mostrar_ayuda()
 
 
@@ -99,6 +106,19 @@ func _process(delta: float) -> void:
 
 
 func _input(evento: InputEvent) -> void:
+	# Teclas de audio (se leen aquí y no en el mapa de entrada del proyecto para
+	# no tocar project.godot): M = silencio, N = música normal/bajita/apagada.
+	var tecla := evento as InputEventKey
+	if tecla != null and tecla.pressed and not tecla.echo:
+		if tecla.physical_keycode == KEY_M:
+			sonido.alternar_silencio()
+			_actualizar_audio()
+			return
+		if tecla.physical_keycode == KEY_N:
+			sonido.alternar_musica()
+			_actualizar_audio()
+			return
+
 	# Reinicio: ESPACIO/ENTER (acción ui_accept) o clic del ratón.
 	if not pantalla_final.visible:
 		return
@@ -210,6 +230,7 @@ func _crear_jugador() -> void:
 	gusano.color = COLOR_JUGADOR
 	gusano.segmentos_iniciales = 8
 	gusano.nombre = "TÚ"
+	gusano.sonido = sonido
 	# Grupo que usan los bots para saber dónde está "la acción".
 	gusano.add_to_group(Gusano.GRUPO_JUGADOR)
 	gusano.murio.connect(_on_gusano_murio.bind(gusano))
@@ -231,6 +252,7 @@ func _crear_bot() -> void:
 	# Algunos bots son "valientes" y usan el turbo para escapar.
 	bot.probabilidad_turbo = randf_range(0.0, 0.5)
 	bot.nombre = "Bot %d" % _contador_bots
+	bot.sonido = sonido
 	bot.murio.connect(_on_gusano_murio.bind(bot))
 	bot.segmento_soltado.connect(_on_segmento_soltado)
 	contenedor_gusanos.add_child(bot)
@@ -355,6 +377,11 @@ func _actualizar_clasificacion() -> void:
 	etiqueta_clasificacion.text = "\n".join(lineas)
 
 
+## Rótulo del HUD con el estado del audio (se refresca con M y con N).
+func _actualizar_audio() -> void:
+	etiqueta_audio.text = sonido.texto_estado()
+
+
 func _mostrar_ayuda() -> void:
 	etiqueta_ayuda.modulate.a = 1.0
 	var tween := create_tween()
@@ -368,6 +395,9 @@ func _terminar_partida() -> void:
 		+ "Pulsa ESPACIO o haz clic para volver a jugar"
 	) % [_puntos, _record]
 	pantalla_final.visible = true
+	# Golpe grave de cierre, además del sonido de muerte del gusano. Suena donde
+	# está la cámara (el gusano ya no existe, pero la cámara sigue ahí).
+	sonido.tocar("fin", camara.global_position)
 
 
 func _reiniciar_partida() -> void:

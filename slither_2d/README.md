@@ -21,7 +21,11 @@ Prototipo 2D tipo [slither.io](http://slither.io) dentro de un espacio "infinito
 3. Mueve el ratón para dirigir al gusano y pulsa **SHIFT** (o el botón derecho)
    para el **TURBO**. Cuando mueras, **ESPACIO** o clic para reiniciar.
 
-Controles: **ratón** = dirigir · **SHIFT / clic derecho** = turbo · **ESPACIO / clic** = reiniciar.
+Controles: **ratón** = dirigir · **SHIFT / clic derecho** = turbo · **ESPACIO / clic** =
+reiniciar · **M** = silencio · **N** = música (normal → bajita → apagada).
+
+> 🔉 **El juego suena, y no hay ni un archivo de audio**: los efectos y la música se
+> generan por código (`scripts/sonido.gd`). Ver "Sonido" más abajo.
 
 > 🛠️ **¿Vas a editarlo desde VS Code y subir cambios a GitHub?**
 > Tienes la guía paso a paso, con los comandos y las tareas ya preparadas, en
@@ -35,7 +39,7 @@ Controles: **ratón** = dirigir · **SHIFT / clic derecho** = turbo · **ESPACIO
 
 ### ✅ Comprobar que todo funciona
 
-Prueba automática de las 14 comprobaciones (sin abrir ventana, unos segundos):
+Prueba automática de las 16 comprobaciones (sin abrir ventana, unos segundos):
 primero que los scripts cargan, y después las mecánicas una por una.
 
 ```bash
@@ -98,6 +102,7 @@ slither_2d/
 | `main.gd` | **`Node2D`** raíz | `escenas/Main.tscn` |
 | `fondo.gd` | **`Node2D`** hijo de Main | `escenas/Main.tscn` |
 | `minimapa.gd` | **`Control`** hijo de `HUD` | `escenas/Main.tscn` |
+| `sonido.gd` | **`Node2D`** hijo de Main (crea sus propios reproductores) | `escenas/Main.tscn` |
 | `dibujo.gd` | *a ningún nodo*: es una clase de utilidades estáticas (`Dibujo.disco(...)`) | — |
 
 Árbol de `Gusano.tscn`:
@@ -284,6 +289,46 @@ Arriba en el centro: **TOP 5** de gusanos ordenados por longitud (`sort_custom`)
 con **TÚ** marcado con una estrella, más el **récord** de la partida. Se refresca
 cada `intervalo_clasificacion` (0.25 s), no en cada frame.
 
+### 10) Sonido (`sonido.gd`) — generado por código
+
+**No hay ni un `.wav`/`.mp3` en el proyecto**: igual que el juego dibuja con `_draw()`,
+el audio se construye a mano. Se rellena un `PackedByteArray` con muestras PCM
+(16 bits, 22.050 Hz, mono) y se envuelve en un **`AudioStreamWAV`** (¡en Godot 4 ese es
+el nombre!; `AudioStreamSample` era de Godot 3). Cada efecto es un barrido de frecuencia
+con envolvente percusiva: 3 ms de ataque y caída hasta cero para que no se oiga ningún
+"clic" al empezar ni al terminar.
+
+| Sonido | Cuándo | Cómo está hecho |
+|---|---|---|
+| **Comer** | Al tragar comida | Seno 520 → 780 Hz, 0,07 s. Sube en **escalera** si comes varias seguidas (<1,2 s): hasta medio tono por comida |
+| **Power-up** | Al coger un power-up | Arpegio triangular 660 → 880 → 1320 Hz |
+| **Turbo (arranque)** | Al empezar a correr | Barrido 300 → 900 Hz de onda cuadrada |
+| **Turbo (zumbido)** | Mientras dura el turbo | Bucle de 0,25 s con trémolo, pegado al gusano (lo corta al soltar) |
+| **Muerte** | Cuando muere un gusano | Barrido 440 → 90 Hz + ruido, 0,5 s. El del jugador es grave y fuerte; el de un bot, más agudo, flojo y atenuado por la distancia |
+| **Fin de partida** | Al salir la pantalla de "¡TE HAN COMIDO!" | Golpe grave 220 → 60 Hz |
+| **Partida nueva** | Al reiniciar | Arpegio ascendente (Do-Mi-Sol-Do) |
+| **Música** | Todo el rato | Bucle chiptune de 7,5 s a 128 BPM con melodía (cuadrada), bajo (triangular) y bombo, generado nota a nota |
+
+Detalles pensados a propósito:
+
+* **Posicional**: los efectos usan `AudioStreamPlayer2D`, así que una muerte a tu derecha
+  suena a la derecha y lo que pasa lejos se oye flojo (`distancia_audible`, 900 px).
+* **Pool de 6 voces**: comer mientras suena el power-up no se corta; la voz libre se
+  reutiliza y, si no hay ninguna, se pisa la más antigua.
+* **Nunca igual**: cada reproducción lleva un `pitch_scale` aleatorio de ±3 %.
+* **Sin "tac" en los bucles**: la frecuencia del zumbido y el trémolo se ajustan para que
+  quepan **ciclos enteros** dentro del bucle (221 y 2 ciclos exactos), así el final enlaza
+  con el principio.
+* **Teclas**: **M** silencia todo (bus Master) y **N** baja/apaga la música. La preferencia
+  se guarda en `user://ajustes.cfg` (con `ConfigFile`), o sea en tu perfil de usuario, **no
+  en el repositorio**. El estado se ve abajo a la derecha del HUD.
+> 👀 Puedes **ver** las ondas de los 8 sonidos en `preview/sonidos.png` (se generan,
+> sin abrir Godot, con `python3 preview/render_sonidos.py`: replica las mismas fórmulas).
+
+* **Ajustes**: `Sonido → volumen_efectos`, `volumen_musica`, `volumen_musica_bajita`
+  y `distancia_audible`. El número de voces simultáneas es la constante `VOCES` (6)
+  del script `sonido.gd`.
+
 ---
 
 ## 🤖 Bots (`gusano_cpu.gd`)
@@ -328,6 +373,9 @@ Su IA (toma una decisión cada 0.15 s, no en cada frame):
 * **Power-ups cada cuánto**: `Main → Power-ups → intervalo_powerup`, `max_powerups`
   y `powerups_activos` (ponlo en `false` para jugar sin ellos, como hace la prueba).
 * **Tamaño del minimapa**: `Main → HUD → Minimapa → escala` y `alcance`.
+* **Volumen del juego**: `Sonido → volumen_efectos` y `volumen_musica` (dB; -80 es mudo).
+  También puedes bajar el volumen del canal en Ajustes del sistema, o pulsar **M**.
+* **Alcance del audio 2D**: `Sonido → distancia_audible` (900 px).
 
 ---
 
@@ -381,6 +429,9 @@ Y si quieres MSAA 2D de verdad, cambia el renderizador a **Forward+**
   `set_deferred()`.
 * `Image.create_empty()` + `ImageTexture.create_from_image()` (Godot 4.3+) para
   generar la textura del círculo con borde suave en `dibujo.gd`.
+* Audio: `AudioStreamWAV` con `PackedByteArray.encode_s16()` (Godot 4; `AudioStreamSample`
+  era de Godot 3), `AudioServer.set_bus_mute()` para el silencio y `ConfigFile` para
+  recordar la preferencia en `user://`.
 
 ---
 
@@ -392,7 +443,7 @@ power-ups (imán, escudo, turbo gratis y fantasma), minimapa y marcador TOP 5.
 Pendientes (por orden de resultado/esfuerzo):
 
 * **"Juice"**: partículas al comer y al morir, y un pequeño temblor de cámara.
-* **Sonido**: `AudioStreamPlayer2D` con efectos generados por código (sin archivos).
+* ~~Sonido~~ ✅ hecho: efectos **y música** generados por código (`scripts/sonido.gd`).
 * **Pieles y estadísticas**: patrones de color y récord de puntos guardado en
   `user://records.cfg` (con `ConfigFile`).
 * **Bots con personalidad**: recolector, cazador (te persigue) y cobarde, elegidos

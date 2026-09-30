@@ -24,9 +24,11 @@ extends Node
 ##   8) power-up ESCUDO: evita la muerte,
 ##   9) power-up IMÁN: atrae la comida,
 ##  10) los power-ups se generan en el mundo,
-##  11) el HUD nuevo (minimapa, clasificación y barra de turbo) existe,
-##  12) morir al chocar con el cuerpo de OTRO gusano,
-##  13) los restos: una comida en cada posición del cuerpo del muerto.
+##  11) los sonidos se generan (efectos + música, sin ningún archivo de audio),
+##  12) comer dispara el audio (se enciende un reproductor del pool),
+##  13) el HUD nuevo (minimapa, clasificación y barra de turbo) existe,
+##  14) morir al chocar con el cuerpo de OTRO gusano,
+##  15) los restos: una comida en cada posición del cuerpo del muerto.
 
 const RUTA_MAIN := "res://escenas/Main.tscn"
 const RUTA_COMIDA := "res://escenas/Comida.tscn"
@@ -47,8 +49,20 @@ const SCRIPTS_DEL_JUEGO := [
 	"res://scripts/gusano_cpu.gd",
 	"res://scripts/fondo.gd",
 	"res://scripts/minimapa.gd",
+	"res://scripts/sonido.gd",
 	"res://scripts/main.gd",
 ]
+
+## Efectos que se comprueban en la comprobación 14 (nombre -> duración en segundos).
+const EFECTOS_DE_SONIDO := {
+	"comer": 0.07,
+	"powerup": 0.255,
+	"turbo": 0.18,
+	"turbo_bucle": 0.25,
+	"muerte": 0.5,
+	"fin": 0.6,
+	"nueva_partida": 0.28,
+}
 
 var _total := 0
 var _fallos := 0
@@ -283,9 +297,50 @@ func _ejecutar() -> void:
 		]
 	)
 
-	# -------------------------------------------- 11) HUD nuevo
+	# ------------------------- 11) El audio se genera por código
+	var sonido := main.sonido
+	var problemas := PackedStringArray()
+	for nombre in EFECTOS_DE_SONIDO:
+		var flujo := Sonido.generar_efecto(nombre)
+		var segundos := float(flujo.data.size() / 2) / float(flujo.mix_rate)
+		if flujo.data.is_empty() or flujo.format != AudioStreamWAV.FORMAT_16_BITS:
+			problemas.append(nombre)
+		elif absf(segundos - float(EFECTOS_DE_SONIDO[nombre])) > 0.02:
+			problemas.append("%s (%.3f s)" % [nombre, segundos])
+	var musica := Sonido.generar_musica()
+	var segundos_musica := float(musica.data.size() / 2) / float(musica.mix_rate)
+	var musica_ok := musica.loop_mode == AudioStreamWAV.LOOP_FORWARD and segundos_musica > 7.0
+	_comprobar(
+		"11) Los sonidos se generan por código",
+		problemas.is_empty() and musica_ok and sonido != null and sonido.musica_lista(),
+		"%d efectos + música de %.1f s en bucle | problemas: %s" % [
+			EFECTOS_DE_SONIDO.size(), segundos_musica,
+			"ninguno" if problemas.is_empty() else ", ".join(problemas),
+		]
+	)
+
+	# ------------------------- 12) Comer dispara el audio
+	sonido.poner_silencio(false)  # Aunque lo tuvieras silenciado (tecla M) al jugar.
+	gusano._tiempo_inmunidad = 999.0
+	var musica_antes := sonido.musica_sonando()
+	var efectos_antes := sonido.efectos_tocados
+	var comida_audio := load(RUTA_COMIDA).instantiate() as Comida
+	main.contenedor_comida.add_child(comida_audio)
+	comida_audio.global_position = gusano.global_position  # Encima de la cabeza.
+	await _esperar_fisica(3)
+	_comprobar(
+		"12) Comer suena",
+		sonido.efectos_tocados > efectos_antes,
+		"efectos disparados: %d -> %d | música sonando: %s" % [
+			efectos_antes, sonido.efectos_tocados, "sí" if musica_antes else "NO"
+		]
+	)
+
+	# -------------------------------------------- 13) HUD nuevo
 	var faltan_hud := PackedStringArray()
-	for ruta_hud in ["HUD/Minimapa", "HUD/Clasificacion", "HUD/TurboFondo/Relleno", "HUD/Efectos"]:
+	for ruta_hud in [
+		"HUD/Minimapa", "HUD/Clasificacion", "HUD/TurboFondo/Relleno", "HUD/Efectos", "HUD/Audio",
+	]:
 		if main.get_node_or_null(ruta_hud) == null:
 			faltan_hud.append(ruta_hud)
 	var clasificacion := main.get_node_or_null("HUD/Clasificacion") as Label
@@ -293,7 +348,7 @@ func _ejecutar() -> void:
 	if clasificacion != null:
 		clasificacion_ok = clasificacion.text.contains("CLASIFICACIÓN")
 	_comprobar(
-		"11) HUD: minimapa, clasificación y barra de turbo",
+		"13) HUD: minimapa, clasificación y barra de turbo",
 		faltan_hud.is_empty() and clasificacion_ok,
 		"nodos del HUD: %s | clasificación: %s" % [
 			"todos" if faltan_hud.is_empty() else "faltan " + ", ".join(faltan_hud),
@@ -303,6 +358,7 @@ func _ejecutar() -> void:
 
 	# A partir de aquí dejamos todo quieto (posiciones fijas = prueba estable).
 	gusano.set_physics_process(false)
+	gusano._tiempo_inmunidad = 999.0  # Ya no se mueve: nadie debe matarlo ya.
 
 	# Esperamos a que terminen los "pop" pendientes: una comida recién comida
 	# sigue siendo un nodo del árbol 0,12 s mientras dura su animación. Si no
@@ -310,7 +366,7 @@ func _ejecutar() -> void:
 	# de restos (que es una resta) sale descuadrado.
 	await _esperar_fisica(12)
 
-	# ------------------------------ 12 y 13) Muerte por otro cuerpo y restos
+	# ------------------------------ 14 y 15) Muerte por otro cuerpo y restos
 	# Espía de la señal: comprobamos la muerte por lo que EMITE el gusano, no
 	# leyendo un nodo que puede haberse liberado con queue_free().
 	_murio = false
@@ -327,7 +383,7 @@ func _ejecutar() -> void:
 	await _esperar_fisica(4)
 
 	_comprobar(
-		"12) La cabeza muere al tocar el cuerpo de otro gusano",
+		"14) La cabeza muere al tocar el cuerpo de otro gusano",
 		_murio and not is_instance_valid(gusano) and is_instance_valid(otro) and not otro.muerto,
 		"señal 'murio' recibida: %s | jugador liberado: %s | el otro gusano sigue vivo: %s" % [
 			"sí" if _murio else "NO",
@@ -349,7 +405,7 @@ func _ejecutar() -> void:
 	# o dejado de comer nadie antes.
 	var esperadas := _posiciones_restos.size()
 	_comprobar(
-		"13) Restos: una comida por cada parte del cuerpo",
+		"15) Restos: una comida por cada parte del cuerpo",
 		comidas_despues - comidas_antes == esperadas
 			and esperadas == largo_al_morir
 			and restos_creados == esperadas,

@@ -81,6 +81,8 @@ const MAX_PASOS_FRAME := 8  ## Límite de seguridad al muestrear el camino.
 var puntuacion: int = 0
 var muerto: bool = false
 var direccion: Vector2 = Vector2.RIGHT  ## Dirección actual de avance de la cabeza.
+## Nodo de audio del mundo (lo pone `main.gd`; si no está, se busca en el grupo).
+var sonido: Sonido = null
 
 var _segmentos: Array[CuerpoSegmento] = []  ## Índice 0 = primer segmento (pegado a la cabeza).
 var _ruta := PackedVector2Array()  ## Camino recorrido. Índice 0 = punto más reciente.
@@ -94,6 +96,10 @@ var _tiempo_turbo_gratis := 0.0
 var _tiempo_iman := 0.0
 var _tiempo_escudo := 0.0
 var _tiempo_fantasma := 0.0
+
+var _zumbido: AudioStreamPlayer2D = null  ## Bucle del turbo: suena pegado al gusano.
+var _racha_comida := 0  ## Comidas seguidas: el sonido sube en escalera.
+var _tiempo_ultima_comida := -99.0
 
 @onready var cabeza: Area2D = $Cabeza
 @onready var contenedor_segmentos: Node2D = $Segmentos
@@ -114,6 +120,16 @@ func _ready() -> void:
 	_inicializar_ruta()
 	for i in segmentos_iniciales:
 		_agregar_segmento(false)  # Sin animación: al nacer ya están todos.
+
+	# Audio: el mundo nos deja su nodo de sonido (si no, lo buscamos por el grupo).
+	if sonido == null:
+		sonido = get_tree().get_first_node_in_group(Sonido.GRUPO) as Sonido
+	# Reproductor propio para el zumbido del turbo: así suena pegado a nosotros.
+	_zumbido = AudioStreamPlayer2D.new()
+	_zumbido.name = "Zumbido"
+	_zumbido.max_distance = 900.0
+	_zumbido.attenuation = 1.4
+	add_child(_zumbido)
 
 
 func _physics_process(delta: float) -> void:
@@ -181,7 +197,10 @@ func fraccion_turbo() -> float:
 
 func _actualizar_turbo(delta: float) -> void:
 	var tiene_gratis := _tiempo_turbo_gratis > 0.0
+	var estaba_activo := _turbo_activo
 	_turbo_activo = (_turbo_pedido or tiene_gratis) and longitud() > segmentos_minimos_turbo
+	if _turbo_activo != estaba_activo:
+		_actualizar_zumbido()  # Encender/apagar el bucle del turbo.
 	if not _turbo_activo:
 		_temporizador_costo_turbo = 0.0
 		return
@@ -191,6 +210,20 @@ func _actualizar_turbo(delta: float) -> void:
 	if _temporizador_costo_turbo >= intervalo_costo_turbo:
 		_temporizador_costo_turbo = 0.0
 		_quitar_ultimo_segmento()
+
+
+## Enciende o apaga el zumbido del turbo (un bucle generado por código).
+func _actualizar_zumbido() -> void:
+	if _zumbido == null:
+		return
+	if not _turbo_activo:
+		_zumbido.stop()
+		return
+	if sonido != null:
+		_zumbido.stream = sonido.flujo("turbo_bucle")
+		_zumbido.volume_db = sonido.volumen_efectos_db() - 6.0  # De fondo, sin molestar.
+	if _zumbido.stream != null:
+		_zumbido.play()
 
 
 ## Suelta el último segmento (lo convierte en comida a través de la señal).
@@ -331,10 +364,26 @@ func _comer(comida: Comida) -> void:
 	puntuacion += comida.valor
 	if Comida.es_powerup(comida.tipo):
 		aplicar_powerup(comida.tipo, comida.duracion)  # No engorda: da un efecto.
+		if sonido != null:
+			sonido.tocar("powerup", global_position)
 	else:
 		crecer_diferido(comida.segmentos)  # Diferido: estamos dentro de la física.
+		if sonido != null:
+			sonido.tocar("comer", global_position, _tono_comida())
 	puntuacion_cambiada.emit(puntuacion, longitud())
 	comida.consumir()
+
+
+## Tono del sonido de comer: sube en escalera si comes varias seguidas (menos de
+## 1,2 s entre una y otra), así comer en racha suena a "ñam-ñam-ñam" y no a bucle.
+func _tono_comida() -> float:
+	var ahora := Time.get_ticks_msec() / 1000.0
+	if ahora - _tiempo_ultima_comida <= 1.2:
+		_racha_comida = mini(_racha_comida + 1, 6)
+	else:
+		_racha_comida = 0
+	_tiempo_ultima_comida = ahora
+	return pow(2.0, float(_racha_comida) / 12.0)  # Medio tono por comida (máx. 1,41x)
 
 
 # ---------------------------------------------------------------------------
@@ -425,22 +474,31 @@ func morir() -> void:
 	muerto = true
 	set_physics_process(false)
 
-	# a) Posiciones exactas: la cabeza primero y después cada segmento.
+	# a) Sonido: el del jugador es más grave y fuerte; el de un bot, más agudo y
+	#    flojo (y se atenúa con la distancia, porque suena donde murió).
+	if sonido != null:
+		var es_jugador := is_in_group(GRUPO_JUGADOR)
+		sonido.tocar(
+			"muerte", global_position, 1.0 if es_jugador else 1.5,
+			0.0 if es_jugador else -8.0
+		)
+
+	# b) Posiciones exactas: la cabeza primero y después cada segmento.
 	var posiciones := PackedVector2Array()
 	posiciones.append(global_position)
 	for segmento in _segmentos:
 		posiciones.append(segmento.global_position)
 
-	# b) Desactivamos la colisión. set_deferred() porque estamos dentro de una
+	# c) Desactivamos la colisión. set_deferred() porque estamos dentro de una
 	#    señal de física y no se puede tocar el área en ese mismo instante.
 	cabeza.set_deferred("monitoring", false)
 	for segmento in _segmentos:
 		segmento.set_deferred("monitorable", false)
 
-	# c) Avisamos al mundo: main.gd crea una Comida en cada posición.
+	# d) Avisamos al mundo: main.gd crea una Comida en cada posición.
 	murio.emit(posiciones)
 
-	# d) Nos ocultamos y liberamos.
+	# e) Nos ocultamos y liberamos.
 	visible = false
 	queue_free()
 

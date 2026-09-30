@@ -274,7 +274,7 @@ está recargado**. Y si cambias una escena en Godot, se guarda sola al pasar a V
 | `git: dubious ownership` o permisos raros | Abriste VS Code como root. Solución en §2 (`chown` + `safe.directory`). |
 | `error: no se puede pull con rebase: Tienes cambios sin marcar` | Godot ha creado o re-guardado archivos (`.uid`, `.import`, `.tscn`, `project.godot`) y Git no deja hacer el pull. El script lo detecta y te da 3 salidas:<br>• **`.uid` / `.import` (recomendado)**: súbelos una vez, así dejan de estorbar para siempre → `./herramientas.sh subir "chore: archivos de Godot"`<br>• **Apartarlos y recuperarlos**: `./herramientas.sh sync --con-cambios` (o `./herramientas.sh todo --con-cambios` para el ciclo completo)<br>• **Descartarlos** (solo si son re-guardados, se regeneran solos): `git checkout -- . && git clean -fd` |
 | `bash: [herramientas.sh](http://herramientas.sh): No existe el fichero o el directorio` | No es un error de Linux: el nombre del archivo se convirtió en un **enlace de chat** al copiarlo. Escribe el comando a mano, sin corchetes ni paréntesis: `./herramientas.sh todo` |
-| Errores en el EDITOR de Godot o en VS Code que la prueba ya no da | Son **errores viejos en caché**: el editor guarda los scripts parseados y la lista de clases globales en `.godot/`. Solución: cierra y vuelve a abrir el editor de Godot (`Proyecto → Recargar proyecto actual`) y, en VS Code, `F1 → Godot Tools: Restart Language Server`. Si sigue igual: `rm -rf .godot && ./herramientas.sh importar`. Fíjate en la prueba automática: si su comprobación 0 dice que los 8 scripts cargan, tu código está bien. |
+| Errores en el EDITOR de Godot o en VS Code que la prueba ya no da | Son **errores viejos en caché**: el editor guarda los scripts parseados y la lista de clases globales en `.godot/`. Solución: cierra y vuelve a abrir el editor de Godot (`Proyecto → Recargar proyecto actual`) y, en VS Code, `F1 → Godot Tools: Restart Language Server`. Si sigue igual: `rm -rf .godot && ./herramientas.sh importar`. Fíjate en la prueba automática: si su comprobación 0 dice que los 9 scripts cargan, tu código está bien. |
 | `Cannot infer the type of "X" variable because the value doesn't have a set type` | GDScript no puede deducir el tipo: pasa al recorrer listas sin tipar (`for x in [-1.0, 1.0]`). Solución: tipar la colección (`PackedFloat32Array([-1.0, 1.0])`) o anotar la variable (`var ojo: Vector2 = ...`). |
 | `ERROR: Can't change this state while flushing queries. Use call_deferred() or set_deferred() to change monitoring state instead.` | Se creó un nodo con forma de colisión (un segmento, una comida) **dentro** de un callback de física, como la señal `area_entered` al comer. Solución: crearlos en diferido (`crecer_diferido()` en `gusano.gd`, `_esparcir_restos.call_deferred()` en `main.gd`). Ya está resuelto; si reaparece al añadir código nuevo, usa el mismo patrón. |
 | `SCRIPT ERROR: Parse Error: Cannot find member "X" in base "Y"` | **Error real de GDScript**: ese método no existe en ese tipo (nos pasó con `push_front` en un `PackedVector2Array`, que solo tiene `insert`). No es un problema de tu instalación: hay que corregir el script. La prueba automática lo detecta en la comprobación 0 (antes incluso de montar el mundo). |
@@ -354,7 +354,7 @@ Y el resto de atajos:
 
 | Comando | Qué hace |
 |---|---|
-| `./herramientas.sh todo` | `git pull --rebase` + `--import` + prueba (14 comprobaciones) |
+| `./herramientas.sh todo` | `git pull --rebase` + `--import` + prueba (16 comprobaciones) |
 | `./herramientas.sh todo --con-cambios` | Lo mismo, apartando antes los cambios sin guardar |
 | `./herramientas.sh sync` | Traer lo último de GitHub (se niega si hay cambios sin guardar y te da 3 opciones) |
 | `./herramientas.sh sync --con-cambios` | Lo mismo, pero apartando tus cambios con `git stash -u` y devolviéndolos después (perfecto para los `.uid` y los re-guardados de Godot) |
@@ -399,7 +399,7 @@ Salida esperada (resumen):
   Godot 4.7.2.stable.official   |   /home/tu_usuario/MiJuegoIA/slither_2d/
 ===============================================================
   ✔  0) Los scripts del juego se cargan
-        8 scripts cargados sin errores
+        9 scripts cargados sin errores
   ✔  1) El mundo se monta
         jugador: ok | bots: 7/7 | comidas: 150/150
   ✔  2) Cuerpo: segmentos con separación fija
@@ -417,16 +417,20 @@ Salida esperada (resumen):
         la comida se acercó 140.0 px a la cabeza
   ✔ 10) Los power-ups se generan en el mundo
         1 power-up(s) en el mundo | duración del último: 5.0 s
-  ✔ 11) HUD: minimapa, clasificación y barra de turbo
-  ✔ 12) La cabeza muere al tocar el cuerpo de otro gusano
+  ✔ 11) Los sonidos se generan por código
+        7 efectos + música de 7.5 s en bucle | problemas: ninguno
+  ✔ 12) Comer suena
+        efectos disparados: 1 -> 2 | música sonando: sí
+  ✔ 13) HUD: minimapa, clasificación y barra de turbo
+  ✔ 14) La cabeza muere al tocar el cuerpo de otro gusano
   ✔ 13) Restos: una comida por cada parte del cuerpo
         +10 comidas | 10 posiciones en la señal (longitud al morir: 10) | comida en cada punto del rastro: 10/10
 ---------------------------------------------------------------
-  RESULTADO: 14/14 comprobaciones OK   ✔  TODO BIEN
+  RESULTADO: 16/16 comprobaciones OK   ✔  TODO BIEN
 ===============================================================
 ```
 
-Son **14 comprobaciones**: la 0 (todos los scripts cargan) + las 13 de mecánicas.
+Son **16 comprobaciones**: la 0 (todos los scripts cargan) + las 15 de mecánicas.
 (los números entre paréntesis son de una partida de ejemplo: como el mundo lleva
 algo de azar —posición de la comida, tipo de power-up— pueden variar un poco;
 lo que importa es que todas salgan con ✔ y que el resultado sea `14/14`).
@@ -435,7 +439,7 @@ Es la misma prueba que puedes lanzar desde VS Code con
 **F1 → `Tasks: Run Task` → `Probar: mecánicas (headless)`**.
 El código de salida (0/1) permite usarla también en un script de CI.
 
-> 💡 La **comprobación 0** es la más útil del día a día: carga los 8 scripts del
+> 💡 La **comprobación 0** es la más útil del día a día: carga los 9 scripts del
 > juego y, si alguno tiene un error de sintaxis o de API (un método que no
 > existe), lo dice ahí arriba y en claro, en vez de fallar más adelante con una
 > cascada de errores difíciles de leer. Un linter solo ve la sintaxis; esto
@@ -461,7 +465,11 @@ cd ~/MiJuegoIA/slither_2d && godot        # o la tarea "Godot: jugar"
 | 9 | Mira la esquina superior derecha | **Minimapa**: el jugador en el centro con aro blanco, los bots con su color, la comida en puntos pequeños y los restos en naranja |
 | 10 | Mira la parte de arriba, en el centro | **CLASIFICACIÓN** con los 5 gusanos más largos en orden, **TÚ** marcado con una estrella y el récord de la partida |
 | 11 | Cruza delante de un bot con turbo | Si el bot es de los valientes, acelerará para escaparte dejando su rastro de comida |
-| 12 | Mira la consola | Sin errores ni avisos (el de MSAA 2D ya no debe aparecer) |
+| 12 | Come comida y coge un power-up | **Suena**: un "ñam" corto (que sube si comes en racha) y un arpegio al coger el power-up |
+| 13 | Mantén SHIFT y suéltalo | Zumbido de fondo mientras corres con turbo, se corta al soltar |
+| 14 | Deja que muera un bot cerca y lejos | Suena distinto: fuerte/grave al lado, flojo/agudo (y paneado) si muere a un lado de la pantalla |
+| 15 | Pulsa **M** y luego **N** | M: silencio total (el rótulo de abajo a la derecha pone "SONIDO: OFF"). N: música normal → bajita → apagada. Al reabrir el juego se recuerda |
+| 16 | Mira la consola | Sin errores ni avisos (el de MSAA 2D ya no debe aparecer) |
 
 ### 9.4 Si algo falla
 
