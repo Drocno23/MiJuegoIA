@@ -104,12 +104,23 @@ cmd_sync() {
 		echo ""
 
 		if [ "$con_cambios" != "--con-cambios" ]; then
+			# Si lo que estorba lo ha generado Godot (.uid, .import), lo mejor es
+			# subirlo UNA vez y dejar de tener este aviso para siempre.
+			local generados
+			generados="$(git status --porcelain | awk '{print $NF}' | grep -E '\.(uid|import)$' || true)"
+			if [ -n "$generados" ]; then
+				echo "  ${NEGRITA}Archivos generados por Godot${FIN} (conviene subirlos una sola vez):"
+				echo "$generados" | sed 's/^/      /'
+				echo "      ${VERDE}-> ./herramientas.sh subir \"chore: archivos de Godot (.uid/.import)\"${FIN}"
+				echo ""
+			fi
 			aviso "No se puede hacer pull --rebase con cambios sin marcar. Elige UNA opción:"
 			echo "      A) ${NEGRITA}Automático${FIN} (los aparta y los devuelve después):"
 			echo "           ./herramientas.sh sync --con-cambios"
-			echo "      B) ${NEGRITA}Guardarlos en un commit${FIN} (si son tuyos o son los .uid de Godot):"
-			echo "           git add -A && git commit -m \"mis cambios\"   &&   ./herramientas.sh sync"
-			echo "      C) ${NEGRITA}Descartarlos${FIN} (¡se pierden! sirve si son los re-guardados de Godot):"
+			echo "           (o el ciclo completo:  ./herramientas.sh todo --con-cambios)"
+			echo "      B) ${NEGRITA}Guardarlos en un commit${FIN} (recomendado si son .uid/.import):"
+			echo "           ./herramientas.sh subir \"chore: archivos de Godot\""
+			echo "      C) ${NEGRITA}Descartarlos${FIN} (¡se pierden! solo si son re-guardados de Godot):"
 			echo "           git checkout -- . && git clean -fd"
 			exit 1
 		fi
@@ -209,6 +220,8 @@ cmd_ayuda() {
 ${NEGRITA}herramientas.sh${FIN} — atajos para slither_2d (terminal de VS Code)
 
   ./herramientas.sh todo       Sincroniza + importa + prueba (empieza por aquí)
+  ./herramientas.sh todo --con-cambios
+                               Lo mismo, apartando los cambios sin guardar
   ./herramientas.sh sync       Traer lo último de GitHub (git pull --rebase)
   ./herramientas.sh sync --con-cambios
                                Lo mismo, pero apartando tus cambios sin guardar

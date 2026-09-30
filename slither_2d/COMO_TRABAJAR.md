@@ -270,7 +270,7 @@ está recargado**. Y si cambias una escena en Godot, se guarda sola al pasar a V
 | Warnings de `inotify` / "too many open files" / Godot vigilando demasiados archivos | Sube el límite de Kali (y reinicia sesión): `echo fs.inotify.max_user_watches=524288 \| sudo tee -a /etc/sysctl.conf && sudo sysctl -p`. También ayuda que `.godot/` esté excluida del vigilante (ya está en `settings.json`). |
 | El juego no abre ventana (o sale en negro) | Comprueba driver/pantalla: `godot --rendering-driver opengl3` y, si usas Wayland, `godot --display-driver wayland` (con X11, `--display-driver x11`). El proyecto ya usa *GL Compatibility*, el más compatible. |
 | `git: dubious ownership` o permisos raros | Abriste VS Code como root. Solución en §2 (`chown` + `safe.directory`). |
-| `error: no se puede pull con rebase: Tienes cambios sin marcar` | Godot ha re-guardado archivos (`.uid`, `.tscn`, `project.godot`) y Git no deja hacer el pull. Soluciones: `./herramientas.sh sync --con-cambios` (los aparta y los devuelve automáticamente), o guardarlos con `git add -A && git commit -m "chore: archivos de Godot"`, o descartarlos con `git checkout -- . && git clean -fd`. |
+| `error: no se puede pull con rebase: Tienes cambios sin marcar` | Godot ha creado o re-guardado archivos (`.uid`, `.import`, `.tscn`, `project.godot`) y Git no deja hacer el pull. El script lo detecta y te da 3 salidas:<br>• **`.uid` / `.import` (recomendado)**: súbelos una vez, así dejan de estorbar para siempre → `./herramientas.sh subir "chore: archivos de Godot"`<br>• **Apartarlos y recuperarlos**: `./herramientas.sh sync --con-cambios` (o `./herramientas.sh todo --con-cambios` para el ciclo completo)<br>• **Descartarlos** (solo si son re-guardados, se regeneran solos): `git checkout -- . && git clean -fd` |
 | `bash: [herramientas.sh](http://herramientas.sh): No existe el fichero o el directorio` | No es un error de Linux: el nombre del archivo se convirtió en un **enlace de chat** al copiarlo. Escribe el comando a mano, sin corchetes ni paréntesis: `./herramientas.sh todo` |
 | `SCRIPT ERROR: Parse Error: Cannot find member "X" in base "Y"` | **Error real de GDScript**: ese método no existe en ese tipo (nos pasó con `push_front` en un `PackedVector2Array`, que solo tiene `insert`). No es un problema de tu instalación: hay que corregir el script. La prueba automática lo detecta en la comprobación 0 (antes incluso de montar el mundo). |
 | `ERROR: RID allocations ... were leaked at exit` | Aviso al cerrar: quedaban nodos vivos al salir. La prueba ya libera el mundo antes de terminar, así que no debería aparecer. |
@@ -349,7 +349,8 @@ Y el resto de atajos:
 
 | Comando | Qué hace |
 |---|---|
-| `./herramientas.sh todo` | `git pull --rebase` + `--import` + prueba de las 7 mecánicas |
+| `./herramientas.sh todo` | `git pull --rebase` + `--import` + prueba (8 comprobaciones) |
+| `./herramientas.sh todo --con-cambios` | Lo mismo, apartando antes los cambios sin guardar |
 | `./herramientas.sh sync` | Traer lo último de GitHub (se niega si hay cambios sin guardar y te da 3 opciones) |
 | `./herramientas.sh sync --con-cambios` | Lo mismo, pero apartando tus cambios con `git stash -u` y devolviéndolos después (perfecto para los `.uid` y los re-guardados de Godot) |
 | `./herramientas.sh probar` | Prueba automática (también a mano: `godot --headless res://tests/PruebaMecanicas.tscn`) |
