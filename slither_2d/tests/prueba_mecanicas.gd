@@ -19,7 +19,7 @@ extends Node
 ##   3) comer: suma puntos y alarga el cuerpo,
 ##   4) la comida desaparece al comerse,
 ##   5) tocar el PROPIO cuerpo no mata,
-##   6) la cola se afila (grosor decreciente),
+##   6) el cuerpo tiene un solo grosor (uniforme),
 ##   7) turbo: corre más y suelta segmentos,
 ##   8) power-up ESCUDO: evita la muerte,
 ##   9) power-up IMÁN: atrae la comida,
@@ -174,13 +174,26 @@ func _ejecutar() -> void:
 		"el gusano sigue vivo tras \"chocar\" con su propio segmento"
 	)
 
-	# -------------------------------------- 6) La cola se va afilando
+	# -------------------------- 6) Un solo grosor en todo el cuerpo
+	var radio_cabeza: float = gusano.radio
 	var radio_primero: float = gusano._segmentos[0].radio
+	var grosores_iguales := true
+	for segmento in gusano._segmentos:
+		if not is_equal_approx(segmento.radio, radio_primero):
+			grosores_iguales = false
+	# El afilado de cola sigue disponible como opción: comprobamos que funciona.
+	gusano.cola_afilada_segmentos = 8
+	gusano._actualizar_grosores()
 	var radio_ultimo: float = gusano._segmentos[gusano._segmentos.size() - 1].radio
+	gusano.cola_afilada_segmentos = 0  # Y lo volvemos a dejar uniforme.
+	gusano._actualizar_grosores()
 	_comprobar(
-		"6) La cola se afila",
-		radio_ultimo < radio_primero,
-		"primer segmento: %.1f px | último: %.1f px" % [radio_primero, radio_ultimo]
+		"6) El cuerpo tiene un solo grosor",
+		grosores_iguales and is_equal_approx(radio_primero, radio_cabeza)
+			and radio_ultimo < radio_primero,
+		"cabeza: %.1f px | cuerpo: %.1f px en todos los segmentos | afilado opcional: %.1f px" % [
+			radio_cabeza, radio_primero, radio_ultimo
+		]
 	)
 
 	# --------------------------------------------------- 7) Turbo

@@ -56,9 +56,11 @@ const MAX_PASOS_FRAME := 8  ## Límite de seguridad al muestrear el camino.
 @export var segmentos_iniciales: int = 8
 @export var segmentos_maximos: int = 80  ## Tope para no reventar el rendimiento.
 @export var escena_segmento: PackedScene = preload("res://escenas/Segmento.tscn")
-## Los últimos N segmentos se van afilando (0 = cuerpo de grosor uniforme).
-@export var cola_afilada_segmentos: int = 8
-@export var grosor_cola: float = 0.55  ## Radio del último segmento (factor del de la cabeza).
+## AFILADO OPCIONAL de la cola: los últimos N segmentos van adelgazando.
+## Con 0 (por defecto) todo el cuerpo tiene UN SOLO GROSOR, igual que la cabeza.
+## Si algún día lo quieres afilado, ponlo en 8 y ajusta `grosor_cola`.
+@export var cola_afilada_segmentos: int = 0
+@export var grosor_cola: float = 0.55  ## Radio de la punta si se afila (factor del de la cabeza).
 
 @export_group("Power-ups")
 @export var radio_iman: float = 260.0  ## Alcance del imán (píxeles).
@@ -256,7 +258,7 @@ func _agregar_segmento(animar: bool = true) -> void:
 	var segmento := escena_segmento.instantiate() as CuerpoSegmento
 	# Estas propiedades hay que asignarlas ANTES de add_child(), porque _ready()
 	# del segmento es quien las aplica a la forma de colisión y al dibujo.
-	segmento.radio = radio * 0.92
+	segmento.radio = radio  # Un solo grosor: el cuerpo mide lo mismo que la cabeza.
 	segmento.color = color
 	segmento.bordes_suaves = bordes_suaves  # El cuerpo hereda el ajuste de la cabeza.
 	segmento.dueno = self
@@ -268,17 +270,17 @@ func _agregar_segmento(animar: bool = true) -> void:
 	_actualizar_grosores()
 
 
-## Radio que le toca a cada segmento: la cola se afila en los últimos
-## `cola_afilada_segmentos` para que el gusano no parezca una salchicha.
+## Radio que le toca a cada segmento. Por defecto el cuerpo entero tiene el
+## MISMO grosor que la cabeza (0 = uniforme); si `cola_afilada_segmentos` es
+## mayor que 0, los últimos N van adelgazando hasta `grosor_cola`.
 func _radio_de_segmento(indice: int) -> float:
-	var radio_base := radio * 0.92
 	if cola_afilada_segmentos <= 0:
-		return radio_base
+		return radio
 	var inicio_afinado := _segmentos.size() - cola_afilada_segmentos
 	if indice < inicio_afinado:
-		return radio_base
+		return radio
 	var t := float(indice - inicio_afinado + 1) / float(cola_afilada_segmentos)
-	return radio_base * lerpf(1.0, grosor_cola, clampf(t, 0.0, 1.0))
+	return radio * lerpf(1.0, grosor_cola, clampf(t, 0.0, 1.0))
 
 
 ## Reaplica el grosor a todos los segmentos. Se llama solo cuando cambia el

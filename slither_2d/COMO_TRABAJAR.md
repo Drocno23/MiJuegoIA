@@ -408,8 +408,8 @@ Salida esperada (resumen):
         puntos 0 -> 1 | longitud 9 -> 10
   ✔  4) La comida se destruye al comerse
   ✔  5) Tocar el propio cuerpo no mata
-  ✔  6) La cola se afila
-        primer segmento: 11.0 px | último: 6.1 px
+  ✔  6) El cuerpo tiene un solo grosor
+        cabeza: 12.0 px | cuerpo: 12.0 px en todos los segmentos | afilado opcional: 6.6 px
   ✔  7) Turbo: corre más y suelta segmentos
         velocidad 180 -> 306 px/s | longitud 9 -> 8 | segmentos soltados: 1
   ✔  8) El escudo evita la muerte
@@ -456,7 +456,7 @@ cd ~/MiJuegoIA/slither_2d && godot        # o la tarea "Godot: jugar"
 | 4 | Choca **tu** cabeza contra el cuerpo de un bot | Pantalla **"¡TE HAN COMIDO!"** con tus puntos y tu cuerpo convertido en comida naranja |
 | 5 | Pulsa ESPACIO o haz clic | Empieza una partida nueva (mundo limpio, puntos a 0) |
 | 6 | Mira los bordes de los círculos | Suaves, sin dientes de sierra |
-| 7 | Mira la cola del gusano | Va **adelgazando** hacia el final (los 8 últimos segmentos) |
+| 7 | Mira el cuerpo del gusano | Tiene **un solo grosor** de la cabeza a la cola (nada de cola fina) |
 | 8 | Espera a que aparezca un power-up (aro de color) y cómetelo | Efecto distinto según el color: IMÁN (cian) atrae la comida, ESCUDO (verde) y FANTASMA (lila) te hacen invulnerable, TURBO (rosa) corre gratis. El HUD abajo a la izquierda dice cuál tienes y cuánto dura |
 | 9 | Mira la esquina superior derecha | **Minimapa**: el jugador en el centro con aro blanco, los bots con su color, la comida en puntos pequeños y los restos en naranja |
 | 10 | Mira la parte de arriba, en el centro | **CLASIFICACIÓN** con los 5 gusanos más largos en orden, **TÚ** marcado con una estrella y el récord de la partida |

@@ -242,12 +242,18 @@ que gastas segmentos. La acción `turbo` se crea por código en `main.gd`
 (`_asegurar_accion_turbo()`), así puedes añadir más teclas desde
 **Proyecto → Ajustes → Mapa de entrada** sin tocar el código.
 
-### 6) Cola afilada (`gusano.gd`)
+### 6) Un solo grosor de cuerpo (`gusano.gd`)
 
-Los últimos `cola_afilada_segmentos` (8) segmentos van adelgazando hasta
-`grosor_cola` (0.55, o sea un 55 % del radio de la cabeza). Los grosores solo se
-recalculan cuando cambia el número de segmentos (`_actualizar_grosores()`), no en
-cada frame.
+Todo el cuerpo tiene **un solo grosor**: cada segmento usa exactamente el mismo
+radio que la cabeza (`radio`, 12 px), así que el gusano es un tubo uniforme de la
+cabeza a la cola. Los grosores se aplican con `_radio_de_segmento()` /
+`_actualizar_grosores()`, y solo se recalculan cuando cambia el número de segmentos
+(no en cada frame).
+
+> 🎛️ El **afilado de cola** sigue en el código como opción desactivada: pon
+> `Gusano → Cuerpo → cola_afilada_segmentos` en 8 (y `grosor_cola` a tu gusto,
+> 0.55 = 55 % del radio en la punta) y volverás a tener la cola fina. Se aplica al
+> empezar la siguiente partida (o al comer el siguiente segmento).
 
 ### 7) Power-ups (`comida.gd` + `gusano.gd`)
 
@@ -317,7 +323,8 @@ Su IA (toma una decisión cada 0.15 s, no en cada frame):
   (`true` = textura con borde suave, `false` = `draw_circle()` clásico).
 * **Turbo más barato o más rápido**: `Gusano → Turbo → velocidad_turbo`,
   `intervalo_costo_turbo`, `segmentos_minimos_turbo`.
-* **Cola más o menos afilada**: `Gusano → Cuerpo → cola_afilada_segmentos` y `grosor_cola`.
+* **Grosor del cuerpo**: por defecto uniforme (igual que la cabeza). Para la
+  cola afilada: `Gusano → Cuerpo → cola_afilada_segmentos` = 8 y ajusta `grosor_cola`.
 * **Power-ups cada cuánto**: `Main → Power-ups → intervalo_powerup`, `max_powerups`
   y `powerups_activos` (ponlo en `false` para jugar sin ellos, como hace la prueba).
 * **Tamaño del minimapa**: `Main → HUD → Minimapa → escala` y `alcance`.
@@ -379,8 +386,8 @@ Y si quieres MSAA 2D de verdad, cambia el renderizador a **Forward+**
 
 ## 🚀 Ideas para seguir
 
-Ya están hechas: turbo con coste de longitud, cola afilada, power-ups (imán,
-escudo, turbo gratis y fantasma), minimapa y marcador TOP 5.
+Ya están hechas: turbo con coste de longitud, grosor uniforme del cuerpo,
+power-ups (imán, escudo, turbo gratis y fantasma), minimapa y marcador TOP 5.
 
 Pendientes (por orden de resultado/esfuerzo):
 
