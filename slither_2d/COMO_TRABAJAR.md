@@ -168,6 +168,12 @@ terminal**. Ya se abre **dentro de `slither_2d`** (lo dejé configurado en
 
 ## 3. El ciclo diario (4 comandos, en la terminal de VS Code)
 
+> 🧭 **Comprueba la rama antes de nada**: `git status --short --branch`. Debe decir
+> `## arena/01a0ef16-mijuegoia`. Si dice `## main`, tú no estás en la rama del
+> prototipo y no recibirás los cambios: cambia con
+> `git checkout arena/01a0ef16-mijuegoia` (una sola vez).
+> Los atajos del script hacen esa comprobación por ti: `./herramientas.sh estado`.
+
 ```bash
 # 1) Antes de empezar: trae lo último y ponlo debajo de lo tuyo
 git pull --rebase
@@ -266,6 +272,7 @@ está recargado**. Y si cambias una escena en Godot, se guarda sola al pasar a V
 | `git: dubious ownership` o permisos raros | Abriste VS Code como root. Solución en §2 (`chown` + `safe.directory`). |
 | `error: no se puede pull con rebase: Tienes cambios sin marcar` | Godot ha re-guardado archivos (`.uid`, `.tscn`, `project.godot`) y Git no deja hacer el pull. Soluciones: `./herramientas.sh sync --con-cambios` (los aparta y los devuelve automáticamente), o guardarlos con `git add -A && git commit -m "chore: archivos de Godot"`, o descartarlos con `git checkout -- . && git clean -fd`. |
 | `bash: [herramientas.sh](http://herramientas.sh): No existe el fichero o el directorio` | No es un error de Linux: el nombre del archivo se convirtió en un **enlace de chat** al copiarlo. Escribe el comando a mano, sin corchetes ni paréntesis: `./herramientas.sh todo` |
+| Commiteé en `main` en vez de en la rama del prototipo | No pasa nada, el commit está a salvo. Lo que subiste a `main` se puede traer a la rama de trabajo con `git checkout main -- <archivo>` (así trajimos los `.uid`). Para seguir con lo actualizado, cámbiate de rama: `git fetch origin && git checkout arena/01a0ef16-mijuegoia && git pull --rebase`. Antes de commitear, mira siempre la rama: `git status --short --branch` |
 | `error: failed to push some refs` | Te falta `git pull --rebase` antes de subir. |
 | Aparecen `.uid` o `.godot/` nuevos en `git status` | Los `.uid` se commitean; `.godot/` no debería aparecer (si aparece, revisa el `.gitignore`). |
 | Tras un `pull` Godot se queja de recursos | Tarea `Godot: importar recursos (--import)`. |
