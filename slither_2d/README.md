@@ -32,7 +32,8 @@ Prototipo 2D tipo [slither.io](http://slither.io) dentro de un espacio "infinito
 
 ### ✅ Comprobar que todo funciona
 
-Prueba automática de las 7 mecánicas (sin abrir ventana, 2 segundos):
+Prueba automática de las 8 comprobaciones (sin abrir ventana, 2 segundos):
+primero que los scripts cargan, y después las mecánicas una por una.
 
 ```bash
 cd slither_2d

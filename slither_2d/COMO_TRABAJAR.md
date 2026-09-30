@@ -272,6 +272,8 @@ está recargado**. Y si cambias una escena en Godot, se guarda sola al pasar a V
 | `git: dubious ownership` o permisos raros | Abriste VS Code como root. Solución en §2 (`chown` + `safe.directory`). |
 | `error: no se puede pull con rebase: Tienes cambios sin marcar` | Godot ha re-guardado archivos (`.uid`, `.tscn`, `project.godot`) y Git no deja hacer el pull. Soluciones: `./herramientas.sh sync --con-cambios` (los aparta y los devuelve automáticamente), o guardarlos con `git add -A && git commit -m "chore: archivos de Godot"`, o descartarlos con `git checkout -- . && git clean -fd`. |
 | `bash: [herramientas.sh](http://herramientas.sh): No existe el fichero o el directorio` | No es un error de Linux: el nombre del archivo se convirtió en un **enlace de chat** al copiarlo. Escribe el comando a mano, sin corchetes ni paréntesis: `./herramientas.sh todo` |
+| `SCRIPT ERROR: Parse Error: Cannot find member "X" in base "Y"` | **Error real de GDScript**: ese método no existe en ese tipo (nos pasó con `push_front` en un `PackedVector2Array`, que solo tiene `insert`). No es un problema de tu instalación: hay que corregir el script. La prueba automática lo detecta en la comprobación 0 (antes incluso de montar el mundo). |
+| `ERROR: RID allocations ... were leaked at exit` | Aviso al cerrar: quedaban nodos vivos al salir. La prueba ya libera el mundo antes de terminar, así que no debería aparecer. |
 | Commiteé en `main` en vez de en la rama del prototipo | No pasa nada, el commit está a salvo. Lo que subiste a `main` se puede traer a la rama de trabajo con `git checkout main -- <archivo>` (así trajimos los `.uid`). Para seguir con lo actualizado, cámbiate de rama: `git fetch origin && git checkout arena/01a0ef16-mijuegoia && git pull --rebase`. Antes de commitear, mira siempre la rama: `git status --short --branch` |
 | `error: failed to push some refs` | Te falta `git pull --rebase` antes de subir. |
 | Aparecen `.uid` o `.godot/` nuevos en `git status` | Los `.uid` se commitean; `.godot/` no debería aparecer (si aparece, revisa el `.gitignore`). |
@@ -390,6 +392,8 @@ Salida esperada (resumen):
   PRUEBA AUTOMÁTICA — slither_2d
   Godot 4.7.2.stable.official   |   /home/tu_usuario/MiJuegoIA/slither_2d/
 ===============================================================
+  ✔  0) Los scripts del juego se cargan
+        7 scripts cargados sin errores
   ✔  1) El mundo se monta
         jugador: ok | bots: 7/7 | comidas: 150/150
   ✔  2) Cuerpo: segmentos con separación fija
@@ -409,6 +413,12 @@ Salida esperada (resumen):
 Es la misma prueba que puedes lanzar desde VS Code con
 **F1 → `Tasks: Run Task` → `Probar: mecánicas (headless)`**.
 El código de salida (0/1) permite usarla también en un script de CI.
+
+> 💡 La **comprobación 0** es la más útil del día a día: carga los 7 scripts del
+> juego y, si alguno tiene un error de sintaxis o de API (un método que no
+> existe), lo dice ahí arriba y en claro, en vez de fallar más adelante con una
+> cascada de errores difíciles de leer. Un linter solo ve la sintaxis; esto
+> ejecuta el motor de verdad.
 
 ### 9.3 Comprobación a mano en el juego (5 minutos)
 

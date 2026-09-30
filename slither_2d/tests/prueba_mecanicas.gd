@@ -13,6 +13,7 @@ extends Node
 ## En VS Code:  F1 -> "Tasks: Run Task" -> "Probar: mecánicas (headless)"
 ##
 ## Comprueba, en este orden:
+##   0) que TODOS los scripts del juego cargan sin errores (sintaxis y API),
 ##   1) que el mundo se monta (jugador, bots y comida),
 ##   2) el cuerpo: cadena de segmentos con separación fija,
 ##   3) comer: suma puntos y alarga el cuerpo,
@@ -29,6 +30,18 @@ const RUTA_GUSANO := "res://escenas/Gusano.tscn"
 const TOLERANCIA_SEPARACION := 2.0
 ## Distancia máxima a la que debe estar la comida de los restos.
 const TOLERANCIA_RESTOS := 4.0
+## Scripts del juego: la comprobación 0 verifica que TODOS cargan sin errores.
+## Si alguno falla (un método que no existe, un tipo mal deducido...), el error
+## sale aquí, claro y primero, en vez de propagarse como errores confusos.
+const SCRIPTS_DEL_JUEGO := [
+	"res://scripts/dibujo.gd",
+	"res://scripts/comida.gd",
+	"res://scripts/cuerpo_segmento.gd",
+	"res://scripts/gusano.gd",
+	"res://scripts/gusano_cpu.gd",
+	"res://scripts/fondo.gd",
+	"res://scripts/main.gd",
+]
 
 var _total := 0
 var _fallos := 0
@@ -56,6 +69,18 @@ func _ready() -> void:
 
 
 func _ejecutar() -> void:
+	# ---------------------------------------- 0) ¿Cargan todos los scripts?
+	var rotos := PackedStringArray()
+	for ruta in SCRIPTS_DEL_JUEGO:
+		if load(ruta) == null:
+			rotos.append(str(ruta))  # str(): siempre String, sin ambigüedad de tipos
+	var detalle := "%d scripts cargados sin errores" % SCRIPTS_DEL_JUEGO.size()
+	if not rotos.is_empty():
+		detalle = "NO se pudieron cargar: %s  (mira los SCRIPT ERROR de arriba)" % ", ".join(rotos)
+	_comprobar("0) Los scripts del juego se cargan", rotos.is_empty(), detalle)
+	if not rotos.is_empty():
+		return
+
 	# ---------------------------------------------------------------- 1) Montaje
 	var escena: PackedScene = load(RUTA_MAIN)
 	if escena == null:
@@ -79,6 +104,7 @@ func _ejecutar() -> void:
 		]
 	)
 	if gusano == null:
+		await _limpiar(main)
 		return
 
 	# ------------------------------------------------- 2) Cuerpo con separación
@@ -168,6 +194,17 @@ func _ejecutar() -> void:
 			"sí" if _hay_comida_en(main, posicion_muerte) else "NO",
 		]
 	)
+
+	await _limpiar(main)
+
+
+## Libera el mundo antes de terminar: así Godot no avisa de recursos
+## ("RID allocations ... were leaked at exit") al cerrar.
+func _limpiar(main: Mundo) -> void:
+	if is_instance_valid(main):
+		main.queue_free()
+		await get_tree().process_frame
+		await get_tree().process_frame
 
 
 ## Busca una comida a menos de TOLERANCIA_RESTOS píxeles del punto indicado.

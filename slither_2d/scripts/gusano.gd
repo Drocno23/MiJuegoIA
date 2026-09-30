@@ -125,13 +125,15 @@ func _inicializar_ruta() -> void:
 
 
 ## Guarda el camino que va dejando la cabeza (un punto cada PASO_RUTA píxeles).
+## Nota: un PackedVector2Array NO tiene push_front() (eso es del Array normal);
+## para poner el punto más reciente delante se usa insert(0, valor).
 func _actualizar_ruta() -> void:
 	if _ruta.is_empty():
-		_ruta.push_front(global_position)
+		_ruta.insert(0, global_position)
 		return
 	var pasos := 0
 	while _ruta[0].distance_to(global_position) >= PASO_RUTA and pasos < MAX_PASOS_FRAME:
-		_ruta.push_front(_ruta[0].move_toward(global_position, PASO_RUTA))
+		_ruta.insert(0, _ruta[0].move_toward(global_position, PASO_RUTA))
 		pasos += 1
 	# Recortamos la cola de la ruta: solo interesa la longitud que ocupa el cuerpo.
 	var necesarios := int(((float(_segmentos.size()) + 1.0) * separacion) / PASO_RUTA) + 4
@@ -271,7 +273,9 @@ func _draw() -> void:
 	# Ojos: miran siempre hacia donde va la cabeza.
 	var hacia_adelante := direccion * radio * 0.45
 	var hacia_lado := direccion.orthogonal() * radio * 0.4
-	for lado in [-1.0, 1.0]:
-		var ojo := hacia_adelante + hacia_lado * lado
+	# La lista va tipada (PackedFloat32Array) y `ojo` con tipo explícito: si no,
+	# GDScript no puede deducir el tipo y da error de parseo.
+	for lado in PackedFloat32Array([-1.0, 1.0]):
+		var ojo: Vector2 = hacia_adelante + hacia_lado * lado
 		Dibujo.disco(self, ojo, radio * 0.27, Color.WHITE, bordes_suaves)
 		Dibujo.disco(self, ojo + direccion * radio * 0.1, radio * 0.14, Color.BLACK, bordes_suaves)
