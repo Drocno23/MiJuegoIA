@@ -8,11 +8,10 @@ extends Gusano
 ##
 ## La IA es sencilla a propósito:
 ##   1. Si se ha alejado demasiado de la acción, vuelve hacia el jugador.
-##   2. Si tiene el cuerpo de otro gusano cerca -> huye en la dirección contraria.
+##   2. Si tiene el cuerpo de otro gusano cerca -> huye en la dirección contraria
+##      (y algunos bots, los más valientes, usan el TURBO para huir).
 ##   3. Si no, persigue la comida más cercana dentro de su campo de visión.
 ##   4. Si no ve nada, gira un poco al azar para no ir siempre en línea recta.
-
-const GRUPO_JUGADOR := "jugador"  ## El gusano del jugador se añade a este grupo (lo hace main.gd).
 
 @export var distancia_vision: float = 420.0  ## Alcance para buscar comida.
 @export var margen_peligro: float = 80.0  ## Distancia a un cuerpo ajeno que considera peligrosa.
@@ -20,6 +19,9 @@ const GRUPO_JUGADOR := "jugador"  ## El gusano del jugador se añade a este grup
 ## Si se aleja más de esto del jugador, deja de buscar comida y vuelve
 ## (si no, en un mundo infinito los bots acaban perdidos donde no hay nada).
 @export var distancia_maxima_al_jugador: float = 1100.0
+## Probabilidad (0..1) de que este bot use el turbo al huir. Se sortea por bot
+## en `main.gd`, así hay bots tranquilos y bots que aceleran cuando se asustan.
+@export var probabilidad_turbo: float = 0.0
 
 var _direccion_ia: Vector2 = Vector2.RIGHT
 var _tiempo_decision := 0.0
@@ -40,11 +42,12 @@ func _direccion_deseada() -> Vector2:
 
 func _elegir_decision() -> void:
 	# 1) ¿Se ha alejado demasiado? Entonces vuelve hacia el jugador.
-	var jugador := get_tree().get_first_node_in_group(GRUPO_JUGADOR)
+	var jugador := get_tree().get_first_node_in_group(Gusano.GRUPO_JUGADOR)
 	if jugador is Node2D:
 		var centro := (jugador as Node2D).global_position
 		if global_position.distance_to(centro) > distancia_maxima_al_jugador:
 			_direccion_ia = global_position.direction_to(centro)
+			activar_turbo(false)
 			return
 
 	# 2) ¿Hay cuerpos de otros gusanos demasiado cerca?
@@ -64,7 +67,11 @@ func _elegir_decision() -> void:
 	if peligros > 0:
 		# Mezclamos la huida con la dirección actual para no dar un giro brusco.
 		_direccion_ia = (huida.normalized() * 1.4 + direccion * 0.6).normalized()
+		# Los bots con turbo huyen acelerando, si les queda cuerpo suficiente.
+		var quiere_turbo := randf() < probabilidad_turbo and longitud() > 14
+		activar_turbo(quiere_turbo)
 		return
+	activar_turbo(false)
 
 	# 3) Sin peligro: a por la comida más cercana que esté a la vista.
 	var comida_cercana := Vector2.ZERO

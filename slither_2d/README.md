@@ -18,7 +18,10 @@ Prototipo 2D tipo [slither.io](http://slither.io) dentro de un espacio "infinito
 1. Abre Godot 4.7 → **Importar** → selecciona esta carpeta
    (`slither_2d/project.godot`).
 2. Pulsa **F5** (la escena principal ya está configurada: `escenas/Main.tscn`).
-3. Mueve el ratón para dirigir al gusano. Cuando mueras, **ESPACIO** o clic para reiniciar.
+3. Mueve el ratón para dirigir al gusano y pulsa **SHIFT** (o el botón derecho)
+   para el **TURBO**. Cuando mueras, **ESPACIO** o clic para reiniciar.
+
+Controles: **ratón** = dirigir · **SHIFT / clic derecho** = turbo · **ESPACIO / clic** = reiniciar.
 
 > 🛠️ **¿Vas a editarlo desde VS Code y subir cambios a GitHub?**
 > Tienes la guía paso a paso, con los comandos y las tareas ya preparadas, en
@@ -32,7 +35,7 @@ Prototipo 2D tipo [slither.io](http://slither.io) dentro de un espacio "infinito
 
 ### ✅ Comprobar que todo funciona
 
-Prueba automática de las 8 comprobaciones (sin abrir ventana, 2 segundos):
+Prueba automática de las 14 comprobaciones (sin abrir ventana, unos segundos):
 primero que los scripts cargan, y después las mecánicas una por una.
 
 ```bash
@@ -94,6 +97,7 @@ slither_2d/
 | `gusano_cpu.gd` | **`Node2D`** raíz de `GusanoCPU.tscn` (escena heredada de `Gusano.tscn`) | `escenas/GusanoCPU.tscn` |
 | `main.gd` | **`Node2D`** raíz | `escenas/Main.tscn` |
 | `fondo.gd` | **`Node2D`** hijo de Main | `escenas/Main.tscn` |
+| `minimapa.gd` | **`Control`** hijo de `HUD` | `escenas/Main.tscn` |
 | `dibujo.gd` | *a ningún nodo*: es una clase de utilidades estáticas (`Dibujo.disco(...)`) | — |
 
 Árbol de `Gusano.tscn`:
@@ -225,6 +229,55 @@ func _esparcir_restos(posiciones: PackedVector2Array) -> void:
 		_aparecer_comida(posicion, 3, 9.0, COLOR_RESTOS)
 ```
 
+### 5) Turbo (`gusano.gd`)
+
+Mientras se mantiene **SHIFT** (o el clic derecho), la cabeza corre a
+`velocidad * velocidad_turbo` (1.7x) y **el cuerpo paga el precio**: cada
+`intervalo_costo_turbo` (0.35 s) se suelta el último segmento, que aparece en el
+suelo como comida amarilla, así que se puede recuperar. Si la longitud baja a
+`segmentos_minimos_turbo` (6), el turbo se desactiva solo: nunca te quedas sin cuerpo.
+
+La barra verde del HUD (abajo a la izquierda) es el "depósito": se vacía a medida
+que gastas segmentos. La acción `turbo` se crea por código en `main.gd`
+(`_asegurar_accion_turbo()`), así puedes añadir más teclas desde
+**Proyecto → Ajustes → Mapa de entrada** sin tocar el código.
+
+### 6) Cola afilada (`gusano.gd`)
+
+Los últimos `cola_afilada_segmentos` (8) segmentos van adelgazando hasta
+`grosor_cola` (0.55, o sea un 55 % del radio de la cabeza). Los grosores solo se
+recalculan cuando cambia el número de segmentos (`_actualizar_grosores()`), no en
+cada frame.
+
+### 7) Power-ups (`comida.gd` + `gusano.gd`)
+
+Cada `intervalo_powerup` (18 s) aparece uno (como máximo `max_powerups` = 3 en el
+mundo). Son comidas normales con un **aro** de su color y **no engordan**: dan un
+efecto temporal (se acumula quedándose con el mayor):
+
+| Power-up | Color | Duración | Efecto |
+|---|---|---|---|
+| **IMÁN** | cian | 6 s | Atrae la comida a menos de `radio_iman` (260 px) hacia la cabeza |
+| **ESCUDO** | verde claro | 5 s | No puedes morir al chocar con otro cuerpo |
+| **TURBO** | rosa | 4 s | Turbo gratis: corre rápido **sin** perder longitud |
+| **FANTASMA** | lila | 5 s | Ni mueres ni te ven: el cuerpo se vuelve translúcido |
+
+El HUD (abajo a la izquierda) muestra qué efectos tienes activos y cuántos segundos
+les quedan.
+
+### 8) Minimapa (`minimapa.gd`)
+
+El `Control` de la esquina superior derecha dibuja, alrededor del jugador (que va
+en el centro), los gusanos con su color (el jugador con un aro blanco), la comida,
+los restos en naranja y los power-ups. `escala` (0.032) y `alcance` (2600 px)
+deciden cuánto mundo entra en el cuadro.
+
+### 9) Marcador de los más largos (`main.gd`)
+
+Arriba en el centro: **TOP 5** de gusanos ordenados por longitud (`sort_custom`),
+con **TÚ** marcado con una estrella, más el **récord** de la partida. Se refresca
+cada `intervalo_clasificacion` (0.25 s), no en cada frame.
+
 ---
 
 ## 🤖 Bots (`gusano_cpu.gd`)
@@ -244,7 +297,9 @@ Su IA (toma una decisión cada 0.15 s, no en cada frame):
    (el jugador está en el grupo `jugador`; si no, en un mundo infinito los bots
    acabarían perdidos donde no hay comida).
 2. Si tiene el cuerpo de otro gusano a menos de `margen_peligro` (80 px), huye
-   mezclando el vector de huida con su dirección actual.
+   mezclando el vector de huida con su dirección actual. Algunos bots (los que
+   tienen `probabilidad_turbo` alto, sorteado al aparecer) usan el **turbo** para
+   escapar, así que de vez en cuando verás a uno acelerar dejando comida atrás.
 3. Si no, persigue la comida más cercana dentro de `distancia_vision`.
 4. Si no ve nada, gira un poco al azar.
 
@@ -260,6 +315,12 @@ Su IA (toma una decisión cada 0.15 s, no en cada frame):
 * **Zoom de la cámara**: `Main → Camara → Zoom` (1.0 abre mucho campo de visión).
 * **Bordes de los círculos**: casilla `bordes_suaves` en `Gusano` y en `Comida`
   (`true` = textura con borde suave, `false` = `draw_circle()` clásico).
+* **Turbo más barato o más rápido**: `Gusano → Turbo → velocidad_turbo`,
+  `intervalo_costo_turbo`, `segmentos_minimos_turbo`.
+* **Cola más o menos afilada**: `Gusano → Cuerpo → cola_afilada_segmentos` y `grosor_cola`.
+* **Power-ups cada cuánto**: `Main → Power-ups → intervalo_powerup`, `max_powerups`
+  y `powerups_activos` (ponlo en `false` para jugar sin ellos, como hace la prueba).
+* **Tamaño del minimapa**: `Main → HUD → Minimapa → escala` y `alcance`.
 
 ---
 
@@ -318,9 +379,17 @@ Y si quieres MSAA 2D de verdad, cambia el renderizador a **Forward+**
 
 ## 🚀 Ideas para seguir
 
-* Grosor decreciente del cuerpo (radio = `radio * lerp(1.0, 0.6, i/n)`).
-* Zona de peligro: que el borde de la pantalla avise cuando un bot se acerca.
-* Minimapa con los gusanos cercanos.
-* Power-ups (velocidad, imán de comida, cuerpo fantasma).
-* Sonido con `AudioStreamPlayer2D` al comer y al morir.
-* Multijugador real: sincronizar solo la cabeza y usar el mismo `_ruta` en los clientes.
+Ya están hechas: turbo con coste de longitud, cola afilada, power-ups (imán,
+escudo, turbo gratis y fantasma), minimapa y marcador TOP 5.
+
+Pendientes (por orden de resultado/esfuerzo):
+
+* **"Juice"**: partículas al comer y al morir, y un pequeño temblor de cámara.
+* **Sonido**: `AudioStreamPlayer2D` con efectos generados por código (sin archivos).
+* **Pieles y estadísticas**: patrones de color y récord de puntos guardado en
+  `user://records.cfg` (con `ConfigFile`).
+* **Bots con personalidad**: recolector, cazador (te persigue) y cobarde, elegidos
+  en `_elegir_decision()`.
+* **Segundo jugador local**: WASD en la misma pantalla y cámara dividida (o el
+  mismo minimapa) para jugar con alguien.
+* **Multijugador real**: sincronizar solo la cabeza y usar el mismo `_ruta` en los clientes.

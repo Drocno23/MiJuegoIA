@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/fondo.gd" id="2_fondo"]
+[ext_resource type="Script" path="res://scripts/minimapa.gd" id="3_minimapa"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -29,20 +30,84 @@ theme_override_colors/font_color = Color(1, 1, 1, 0.92)
 theme_override_font_sizes/font_size = 22
 text = "PUNTOS: 0"
 
+[node name="Clasificacion" type="Label" parent="HUD"]
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -190.0
+offset_top = 14.0
+offset_right = 190.0
+offset_bottom = 170.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.85)
+theme_override_font_sizes/font_size = 18
+text = "CLASIFICACIÓN"
+horizontal_alignment = 1
+
+[node name="Minimapa" type="Control" parent="HUD"]
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -232.0
+offset_top = 16.0
+offset_right = -22.0
+offset_bottom = 226.0
+grow_horizontal = 0
+mouse_filter = 2
+script = ExtResource("3_minimapa")
+
+[node name="Efectos" type="Label" parent="HUD"]
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = -78.0
+offset_right = 620.0
+offset_bottom = -52.0
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.75, 1, 0.85, 1)
+theme_override_font_sizes/font_size = 18
+
+[node name="TurboTexto" type="Label" parent="HUD"]
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = -50.0
+offset_right = 320.0
+offset_bottom = -26.0
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 1, 1, 0.8)
+theme_override_font_sizes/font_size = 16
+text = "TURBO — SHIFT o clic derecho"
+
+[node name="TurboFondo" type="ColorRect" parent="HUD"]
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = -24.0
+offset_right = 240.0
+offset_bottom = -12.0
+grow_vertical = 0
+mouse_filter = 2
+color = Color(1, 1, 1, 0.12)
+
+[node name="Relleno" type="ColorRect" parent="HUD/TurboFondo"]
+offset_right = 220.0
+offset_bottom = 12.0
+mouse_filter = 2
+color = Color(0.29, 0.89, 0.42, 1)
+
 [node name="Ayuda" type="Label" parent="HUD"]
 anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -440.0
-offset_top = -74.0
-offset_right = 440.0
-offset_bottom = -28.0
+offset_left = -480.0
+offset_top = -112.0
+offset_right = 480.0
+offset_bottom = -88.0
 grow_horizontal = 2
 grow_vertical = 0
 theme_override_colors/font_color = Color(1, 1, 1, 0.75)
-theme_override_font_sizes/font_size = 18
-text = "Mueve el ratón para dirigir al gusano. Cómete la comida amarilla y no choques con el cuerpo de otro gusano."
+theme_override_font_sizes/font_size = 17
+text = "Ratón: dirigir · SHIFT o clic derecho: TURBO · Cómete la comida amarilla, los power-ups (aro) y no choques con otro gusano"
 horizontal_alignment = 1
 vertical_alignment = 1
 

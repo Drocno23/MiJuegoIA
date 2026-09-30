@@ -10,12 +10,23 @@ extends Area2D
 ##   * Monitorable     = ON   -> pero sí puede ser detectado por las cabezas.
 ##
 ## IMPORTANTE: los segmentos NO se colocan a mano en el editor.
-## Los crea y los coloca el script `gusano.gd` en tiempo real.
+## Los crea y los coloca el script `gusano.gd` en tiempo real, y también ajusta
+## su `radio` para que la cola se vaya afilando.
 
 const GRUPO := "segmento_cuerpo"  ## Grupo que usa la cabeza para reconocer un cuerpo.
 
-@export var radio: float = 12.0  ## Radio visual y de colisión del segmento.
-@export var color: Color = Color("35c9ff")  ## Color del cuerpo (lo fija el gusano).
+## Radio visual y de colisión. El gusano lo cambia en caliente para afilar la
+## cola, así que el setter actualiza la forma de colisión y vuelve a dibujar.
+@export var radio: float = 12.0:
+	set(nuevo_radio):
+		radio = maxf(nuevo_radio, 1.0)
+		_actualizar_forma()
+
+@export var color: Color = Color("35c9ff"):  ## Color del cuerpo (lo fija el gusano).
+	set(nuevo_color):
+		color = nuevo_color
+		queue_redraw()
+
 @export var animar_aparicion: bool = true  ## Animación de "nacer" al crecer.
 ## Dibuja los círculos con el borde suave (independiente del MSAA del renderizador).
 @export var bordes_suaves: bool = true
@@ -34,10 +45,19 @@ func _ready() -> void:
 	# compartirían el mismo recurso CircleShape2D y cambiar el radio de uno
 	# cambiaría el de todos.
 	_forma.shape = _forma.shape.duplicate()
-	(_forma.shape as CircleShape2D).radius = radio
+	# Aplicamos el radio actual (el gusano puede haberlo cambiado antes de
+	# add_child(), y aquí ya existe el nodo de la forma).
+	_actualizar_forma()
 	queue_redraw()
 	if animar_aparicion:
 		_animar_nacimiento()
+
+
+## Aplica el radio a la forma de colisión (el dibujo lo hace `_draw()`).
+func _actualizar_forma() -> void:
+	if _forma == null or not is_inside_tree():
+		return
+	(_forma.shape as CircleShape2D).radius = radio
 
 
 func _animar_nacimiento() -> void:

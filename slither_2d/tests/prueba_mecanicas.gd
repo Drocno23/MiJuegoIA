@@ -19,8 +19,14 @@ extends Node
 ##   3) comer: suma puntos y alarga el cuerpo,
 ##   4) la comida desaparece al comerse,
 ##   5) tocar el PROPIO cuerpo no mata,
-##   6) morir al chocar con el cuerpo de OTRO gusano,
-##   7) los restos: una comida en cada posición del cuerpo del muerto.
+##   6) la cola se afila (grosor decreciente),
+##   7) turbo: corre más y suelta segmentos,
+##   8) power-up ESCUDO: evita la muerte,
+##   9) power-up IMÁN: atrae la comida,
+##  10) los power-ups se generan en el mundo,
+##  11) el HUD nuevo (minimapa, clasificación y barra de turbo) existe,
+##  12) morir al chocar con el cuerpo de OTRO gusano,
+##  13) los restos: una comida en cada posición del cuerpo del muerto.
 
 const RUTA_MAIN := "res://escenas/Main.tscn"
 const RUTA_COMIDA := "res://escenas/Comida.tscn"
@@ -40,6 +46,7 @@ const SCRIPTS_DEL_JUEGO := [
 	"res://scripts/gusano.gd",
 	"res://scripts/gusano_cpu.gd",
 	"res://scripts/fondo.gd",
+	"res://scripts/minimapa.gd",
 	"res://scripts/main.gd",
 ]
 
@@ -47,6 +54,7 @@ var _total := 0
 var _fallos := 0
 var _murio := false
 var _posiciones_restos := PackedVector2Array()
+var _segmentos_soltados := 0  ## Cuántas veces el turbo ha gastado un segmento.
 
 
 func _ready() -> void:
@@ -91,6 +99,7 @@ func _ejecutar() -> void:
 	var main := escena.instantiate() as Mundo
 	add_child(main)
 	main.comida_por_segundo = 0.0  # Sin comida nueva: así los conteos son exactos.
+	main.powerups_activos = false  # Los power-ups de la prueba se aplican a mano.
 	await _esperar_fisica(3)
 
 	var gusano := main.jugador
@@ -157,9 +166,6 @@ func _ejecutar() -> void:
 		"el nodo de comida ya no existe"
 	)
 
-	# A partir de aquí dejamos al jugador quieto (posición fija = prueba estable).
-	gusano.set_physics_process(false)
-
 	# ---------------------------------------- 5) El propio cuerpo NO mata
 	gusano._chocar_con_cuerpo(gusano._segmentos[0])
 	_comprobar(
@@ -168,18 +174,117 @@ func _ejecutar() -> void:
 		"el gusano sigue vivo tras \"chocar\" con su propio segmento"
 	)
 
-	# -------------------------------- 6 y 7) Muerte por otro cuerpo y restos
+	# -------------------------------------- 6) La cola se va afilando
+	var radio_primero: float = gusano._segmentos[0].radio
+	var radio_ultimo: float = gusano._segmentos[gusano._segmentos.size() - 1].radio
+	_comprobar(
+		"6) La cola se afila",
+		radio_ultimo < radio_primero,
+		"primer segmento: %.1f px | último: %.1f px" % [radio_primero, radio_ultimo]
+	)
+
+	# --------------------------------------------------- 7) Turbo
+	# Inmunidad alta: mientras el gusano se mueve solo, no debe morir por un bot.
+	gusano._tiempo_inmunidad = 999.0
+	var velocidad_normal := gusano.velocidad_actual()
+	var longitud_antes_turbo := gusano.longitud()
+	gusano.segmento_soltado.connect(_on_segmento_soltado_prueba)
+	# Pulsamos la acción de verdad (como si se mantuviera SHIFT): el mundo es
+	# quien la lee en _process(), igual que hará el jugador en la partida.
+	Input.action_press("turbo")
+	await _esperar_fisica(30)  # 0,5 s: tiempo de sobra para el primer coste.
+	var velocidad_con_turbo := gusano.velocidad_actual()
+	Input.action_release("turbo")
+	await _esperar_fisica(2)
+	_comprobar(
+		"7) Turbo: corre más y suelta segmentos",
+		velocidad_con_turbo > velocidad_normal and _segmentos_soltados >= 1,
+		"velocidad %.0f -> %.0f px/s | longitud %d -> %d | segmentos soltados: %d" % [
+			velocidad_normal, velocidad_con_turbo, longitud_antes_turbo,
+			gusano.longitud(), _segmentos_soltados
+		]
+	)
+
+	# ------------------------------------ 8) Power-up ESCUDO
 	var otro := load(RUTA_GUSANO).instantiate() as Gusano
 	otro.segmentos_iniciales = 6
-	# IMPORTANTE: la posición se fija ANTES de add_child(). El gusano construye su
-	# cuerpo en _ready() a partir de su posición, así que si lo añadimos primero
-	# nacería en el origen... ¡encima del jugador, y lo mataría sin querer!
+	# La posición se fija ANTES de add_child(): el gusano construye su cuerpo en
+	# _ready() a partir de su posición, así que si lo añadimos primero nacería en
+	# el origen... ¡encima del jugador, y lo mataría sin querer!
 	otro.position = gusano.global_position + Vector2(500.0, 0.0)
 	main.contenedor_gusanos.add_child(otro)
 	otro.mirar_hacia(PI)  # Mira hacia el jugador, pero su cuerpo queda detrás.
 	otro.set_physics_process(false)
-	await _esperar_fisica(1)
 
+	gusano._tiempo_inmunidad = 0.0
+	gusano.aplicar_powerup(Comida.Tipo.ESCUDO, 5.0)
+	gusano._chocar_con_cuerpo(otro._segmentos[0])
+	_comprobar(
+		"8) El escudo evita la muerte",
+		not gusano.muerto,
+		"con el escudo activo, chocar con otro cuerpo no lo mata"
+	)
+
+	# ------------------------------------ 9) Power-up IMÁN
+	gusano._tiempo_inmunidad = 999.0
+	gusano._tiempo_escudo = 0.0
+	gusano.aplicar_powerup(Comida.Tipo.IMAN, 5.0)
+	var comida_iman := load(RUTA_COMIDA).instantiate() as Comida
+	main.contenedor_comida.add_child(comida_iman)
+	comida_iman.global_position = gusano.global_position + Vector2(gusano.radio_iman * 0.75, 0.0)
+	await _esperar_fisica(1)
+	var posicion_inicial_iman := comida_iman.global_position
+	await _esperar_fisica(20)
+	var movida := 0.0
+	if is_instance_valid(comida_iman):
+		movida = posicion_inicial_iman.distance_to(comida_iman.global_position)
+	else:
+		movida = gusano.radio_iman  # Se la comió: el imán funcionó de sobra.
+	_comprobar(
+		"9) El imán atrae la comida",
+		movida > 20.0,
+		"la comida se acercó %.1f px a la cabeza" % movida
+	)
+
+	# -------------------- 10) Los power-ups se generan en el mundo
+	main._aparecer_powerup()
+	var powerups_en_el_mundo := 0
+	var duracion_powerup := 0.0
+	for nodo in main.contenedor_comida.get_children():
+		var comida_mundo := nodo as Comida
+		if comida_mundo != null and Comida.es_powerup(comida_mundo.tipo):
+			powerups_en_el_mundo += 1
+			duracion_powerup = comida_mundo.duracion
+	_comprobar(
+		"10) Los power-ups se generan en el mundo",
+		powerups_en_el_mundo >= 1 and duracion_powerup > 0.0,
+		"%d power-up(s) en el mundo | duración del último: %.1f s" % [
+			powerups_en_el_mundo, duracion_powerup
+		]
+	)
+
+	# -------------------------------------------- 11) HUD nuevo
+	var faltan_hud := PackedStringArray()
+	for ruta_hud in ["HUD/Minimapa", "HUD/Clasificacion", "HUD/TurboFondo/Relleno", "HUD/Efectos"]:
+		if main.get_node_or_null(ruta_hud) == null:
+			faltan_hud.append(ruta_hud)
+	var clasificacion := main.get_node_or_null("HUD/Clasificacion") as Label
+	var clasificacion_ok := false
+	if clasificacion != null:
+		clasificacion_ok = clasificacion.text.contains("CLASIFICACIÓN")
+	_comprobar(
+		"11) HUD: minimapa, clasificación y barra de turbo",
+		faltan_hud.is_empty() and clasificacion_ok,
+		"nodos del HUD: %s | clasificación: %s" % [
+			"todos" if faltan_hud.is_empty() else "faltan " + ", ".join(faltan_hud),
+			"ok" if clasificacion_ok else "vacía"
+		]
+	)
+
+	# A partir de aquí dejamos todo quieto (posiciones fijas = prueba estable).
+	gusano.set_physics_process(false)
+
+	# ------------------------------ 12 y 13) Muerte por otro cuerpo y restos
 	# Espía de la señal: comprobamos la muerte por lo que EMITE el gusano, no
 	# leyendo un nodo que puede haberse liberado con queue_free().
 	_murio = false
@@ -196,7 +301,7 @@ func _ejecutar() -> void:
 	await _esperar_fisica(4)
 
 	_comprobar(
-		"6) La cabeza muere al tocar el cuerpo de otro gusano",
+		"12) La cabeza muere al tocar el cuerpo de otro gusano",
 		_murio and not is_instance_valid(gusano) and is_instance_valid(otro) and not otro.muerto,
 		"señal 'murio' recibida: %s | jugador liberado: %s | el otro gusano sigue vivo: %s" % [
 			"sí" if _murio else "NO",
@@ -210,7 +315,7 @@ func _ejecutar() -> void:
 	var comidas_despues := main.contenedor_comida.get_child_count()
 	var hay_comida_en_el_punto := _hay_comida_en(main, posicion_muerte)
 	_comprobar(
-		"7) Restos: una comida por cada parte del cuerpo",
+		"13) Restos: una comida por cada parte del cuerpo",
 		comidas_despues - comidas_antes == largo_al_morir
 			and _posiciones_restos.size() == largo_al_morir
 			and hay_comida_en_el_punto,
@@ -242,7 +347,12 @@ func _hay_comida_en(main: Mundo, punto: Vector2) -> bool:
 	return false
 
 
-## Guarda lo que emite el gusano al morir (se conecta en la comprobación 6).
+## Cuenta los segmentos que el turbo ha soltado (comprobación 7).
+func _on_segmento_soltado_prueba(_posicion: Vector2) -> void:
+	_segmentos_soltados += 1
+
+
+## Guarda lo que emite el gusano al morir (se conecta en la comprobación 12).
 func _on_gusano_murio_prueba(posiciones: PackedVector2Array) -> void:
 	_murio = true
 	_posiciones_restos = posiciones

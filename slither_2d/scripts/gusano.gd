@@ -18,13 +18,27 @@ extends Node2D
 ##   3. Cada segmento se coloca sobre ese camino a una distancia fija de la cabeza
 ##      (`_punto_detras`), así el cuerpo sigue exactamente la huella que dejó la cabeza
 ##      y la separación entre segmentos nunca cambia.
+##
+## MECÁNICAS IMPLEMENTADAS
+##   * Movimiento suave hacia el objetivo (ratón o IA).
+##   * Crecimiento al comer (puntos + segmento al final de la cola).
+##   * Muerte al chocar la cabeza con el cuerpo de OTRO gusano.
+##   * Restos: al morir emite las posiciones exactas de sus segmentos.
+##   * TURBO: corre más a cambio de ir soltando segmentos por el camino.
+##   * COLA AFILADA: los últimos segmentos son progresivamente más finos.
+##   * POWER-UPS: imán, escudo, turbo gratis y fantasma (ver `comida.gd`).
 
 ## Emitida al morir. Lleva las posiciones exactas de todos los segmentos para que
 ## el mundo (main.gd) convierta el cuerpo en comida.
 signal murio(posiciones_restos: PackedVector2Array)
 ## Emitida al comer: puntos acumulados y longitud total (cabeza + segmentos).
 signal puntuacion_cambiada(puntos: int, longitud: int)
+## Emitida cuando el turbo gasta un segmento. El mundo lo convierte en comida
+## (va en diferido, porque se emite durante el paso de física).
+signal segmento_soltado(posicion: Vector2)
 
+const GRUPO := "gusano"  ## Grupo con todos los gusanos (lo usa el minimapa).
+const GRUPO_JUGADOR := "jugador"  ## Solo el gusano del jugador (lo usan los bots).
 const PASO_RUTA := 4.0  ## Distancia en píxeles entre puntos guardados del camino.
 const MAX_PASOS_FRAME := 8  ## Límite de seguridad al muestrear el camino.
 
@@ -32,11 +46,23 @@ const MAX_PASOS_FRAME := 8  ## Límite de seguridad al muestrear el camino.
 @export var velocidad: float = 170.0  ## Píxeles por segundo (constante, como en slither.io).
 @export var velocidad_giro: float = 6.0  ## Radianes por segundo: cuánto puede girar la cabeza.
 
+@export_group("Turbo")
+@export var velocidad_turbo: float = 1.7  ## Multiplicador de velocidad al usar el turbo.
+@export var intervalo_costo_turbo: float = 0.35  ## Cada cuántos segundos suelta un segmento.
+@export var segmentos_minimos_turbo: int = 6  ## Longitud mínima para poder usarlo.
+
 @export_group("Cuerpo")
 @export var separacion: float = 15.0  ## Distancia fija entre segmentos (y entre cabeza y 1º).
 @export var segmentos_iniciales: int = 8
 @export var segmentos_maximos: int = 80  ## Tope para no reventar el rendimiento.
 @export var escena_segmento: PackedScene = preload("res://escenas/Segmento.tscn")
+## Los últimos N segmentos se van afilando (0 = cuerpo de grosor uniforme).
+@export var cola_afilada_segmentos: int = 8
+@export var grosor_cola: float = 0.55  ## Radio del último segmento (factor del de la cabeza).
+
+@export_group("Power-ups")
+@export var radio_iman: float = 260.0  ## Alcance del imán (píxeles).
+@export var velocidad_iman: float = 420.0  ## Píxeles por segundo con que atrae la comida.
 
 @export_group("Apariencia")
 @export var radio: float = 12.0
@@ -44,6 +70,7 @@ const MAX_PASOS_FRAME := 8  ## Límite de seguridad al muestrear el camino.
 ## Dibuja los círculos con el borde suave (independiente del MSAA del renderizador).
 ## Ponlo en false para volver al draw_circle() clásico.
 @export var bordes_suaves: bool = true
+@export var nombre: String = ""  ## Nombre en la clasificación ("TÚ", "Bot 3"...).
 
 @export_group("Reglas")
 ## Segundos al nacer en los que no puede morir (evita muertes absurdas al aparecer).
@@ -57,12 +84,22 @@ var _segmentos: Array[CuerpoSegmento] = []  ## Índice 0 = primer segmento (pega
 var _ruta := PackedVector2Array()  ## Camino recorrido. Índice 0 = punto más reciente.
 var _tiempo_inmunidad := 0.0
 
+# --- estado del turbo y de los power-ups ---
+var _turbo_pedido := false
+var _turbo_activo := false
+var _temporizador_costo_turbo := 0.0
+var _tiempo_turbo_gratis := 0.0
+var _tiempo_iman := 0.0
+var _tiempo_escudo := 0.0
+var _tiempo_fantasma := 0.0
+
 @onready var cabeza: Area2D = $Cabeza
 @onready var contenedor_segmentos: Node2D = $Segmentos
 @onready var _forma_cabeza: CollisionShape2D = $Cabeza/CollisionShape2D
 
 
 func _ready() -> void:
+	add_to_group(GRUPO)
 	_tiempo_inmunidad = inmunidad_inicial
 	# Forma de colisión propia de esta instancia (si no, todas las cabezas
 	# compartirían el mismo CircleShape2D de la escena).
@@ -83,11 +120,14 @@ func _physics_process(delta: float) -> void:
 	if _tiempo_inmunidad > 0.0:
 		_tiempo_inmunidad -= delta
 
+	_actualizar_efectos(delta)
+	_actualizar_turbo(delta)
 	_girar(delta)
-	global_position += direccion * velocidad * delta
+	global_position += direccion * velocidad_actual() * delta
 
 	_actualizar_ruta()
 	_colocar_segmentos()
+	_atraer_comida(delta)
 	queue_redraw()  # Para que los ojos giren con la cabeza.
 
 
@@ -111,8 +151,58 @@ func _girar(delta: float) -> void:
 	direccion = direccion.rotated(clampf(diferencia, -paso_maximo, paso_maximo))
 
 
+## Velocidad real en este instante (tiene en cuenta el turbo).
+func velocidad_actual() -> float:
+	return velocidad * (velocidad_turbo if _turbo_activo else 1.0)
+
+
 # ---------------------------------------------------------------------------
-# 2) CUERPO: cadena de segmentos sobre el camino de la cabeza
+# 2) TURBO: correr más a cambio de soltar segmentos
+# ---------------------------------------------------------------------------
+
+## El jugador (o la IA) pide activar/desactivar el turbo. Se aplica en el
+## siguiente paso de física, y solo si el gusano tiene longitud suficiente.
+func activar_turbo(activar: bool) -> void:
+	_turbo_pedido = activar
+
+
+func esta_en_turbo() -> bool:
+	return _turbo_activo
+
+
+## Fracción de "combustible" de turbo que le queda (0..1), para la barra del HUD.
+## Cuenta cuántos segmentos puede gastar antes de llegar al mínimo.
+func fraccion_turbo() -> float:
+	var disponible := float(longitud() - segmentos_minimos_turbo)
+	return clampf(disponible / 20.0, 0.0, 1.0)
+
+
+func _actualizar_turbo(delta: float) -> void:
+	var tiene_gratis := _tiempo_turbo_gratis > 0.0
+	_turbo_activo = (_turbo_pedido or tiene_gratis) and longitud() > segmentos_minimos_turbo
+	if not _turbo_activo:
+		_temporizador_costo_turbo = 0.0
+		return
+	if tiene_gratis:
+		return  # Durante el turbo gratis no se pierde longitud.
+	_temporizador_costo_turbo += delta
+	if _temporizador_costo_turbo >= intervalo_costo_turbo:
+		_temporizador_costo_turbo = 0.0
+		_quitar_ultimo_segmento()
+
+
+## Suelta el último segmento (lo convierte en comida a través de la señal).
+func _quitar_ultimo_segmento() -> void:
+	if _segmentos.size() <= segmentos_minimos_turbo - 1:
+		return
+	var ultimo: CuerpoSegmento = _segmentos.pop_back()
+	segmento_soltado.emit(ultimo.global_position)
+	ultimo.queue_free()
+	_actualizar_grosores()
+
+
+# ---------------------------------------------------------------------------
+# 3) CUERPO: cadena de segmentos sobre el camino de la cabeza
 # ---------------------------------------------------------------------------
 
 ## Crea la ruta inicial recta detrás de la cabeza (para que el gusano
@@ -166,7 +256,7 @@ func _agregar_segmento(animar: bool = true) -> void:
 	var segmento := escena_segmento.instantiate() as CuerpoSegmento
 	# Estas propiedades hay que asignarlas ANTES de add_child(), porque _ready()
 	# del segmento es quien las aplica a la forma de colisión y al dibujo.
-	segmento.radio = radio
+	segmento.radio = radio * 0.92
 	segmento.color = color
 	segmento.bordes_suaves = bordes_suaves  # El cuerpo hereda el ajuste de la cabeza.
 	segmento.dueno = self
@@ -175,6 +265,27 @@ func _agregar_segmento(animar: bool = true) -> void:
 	# Después de add_child() ya tiene padre, así que global_position es correcto.
 	segmento.global_position = _punto_detras((float(_segmentos.size()) + 1.0) * separacion)
 	_segmentos.append(segmento)
+	_actualizar_grosores()
+
+
+## Radio que le toca a cada segmento: la cola se afila en los últimos
+## `cola_afilada_segmentos` para que el gusano no parezca una salchicha.
+func _radio_de_segmento(indice: int) -> float:
+	var radio_base := radio * 0.92
+	if cola_afilada_segmentos <= 0:
+		return radio_base
+	var inicio_afinado := _segmentos.size() - cola_afilada_segmentos
+	if indice < inicio_afinado:
+		return radio_base
+	var t := float(indice - inicio_afinado + 1) / float(cola_afilada_segmentos)
+	return radio_base * lerpf(1.0, grosor_cola, clampf(t, 0.0, 1.0))
+
+
+## Reaplica el grosor a todos los segmentos. Se llama solo cuando cambia el
+## número de segmentos (no en cada frame: cambiar el radio actualiza la forma).
+func _actualizar_grosores() -> void:
+	for i in _segmentos.size():
+		_segmentos[i].radio = _radio_de_segmento(i)
 
 
 ## Longitud total del gusano (la cabeza cuenta como 1).
@@ -183,7 +294,7 @@ func longitud() -> int:
 
 
 # ---------------------------------------------------------------------------
-# 3) CRECIMIENTO: comer añade puntos y un segmento nuevo al final de la cola
+# 4) CRECIMIENTO: comer añade puntos y un segmento nuevo al final de la cola
 # ---------------------------------------------------------------------------
 
 ## Añade segmentos al final de la cola. Lo llama `_comer()`.
@@ -216,15 +327,84 @@ func _comer(comida: Comida) -> void:
 	if not is_instance_valid(comida):
 		return
 	puntuacion += comida.valor
-	crecer_diferido(comida.segmentos)  # Diferido: estamos dentro de la física.
+	if Comida.es_powerup(comida.tipo):
+		aplicar_powerup(comida.tipo, comida.duracion)  # No engorda: da un efecto.
+	else:
+		crecer_diferido(comida.segmentos)  # Diferido: estamos dentro de la física.
 	puntuacion_cambiada.emit(puntuacion, longitud())
 	comida.consumir()
 
 
+# ---------------------------------------------------------------------------
+# 5) POWER-UPS: efectos temporales
+# ---------------------------------------------------------------------------
+
+## Activa el efecto de un power-up durante `duracion` segundos (se acumula:
+## si ya estaba activo, se queda con el tiempo mayor).
+func aplicar_powerup(tipo_poder: int, duracion: float) -> void:
+	match tipo_poder:
+		Comida.Tipo.IMAN:
+			_tiempo_iman = maxf(_tiempo_iman, duracion)
+		Comida.Tipo.ESCUDO:
+			_tiempo_escudo = maxf(_tiempo_escudo, duracion)
+		Comida.Tipo.TURBO:
+			_tiempo_turbo_gratis = maxf(_tiempo_turbo_gratis, duracion)
+		Comida.Tipo.FANTASMA:
+			_tiempo_fantasma = maxf(_tiempo_fantasma, duracion)
+
+
+## ¿Puede ignorar ahora mismo un choque contra otro cuerpo?
+func es_invulnerable() -> bool:
+	return _tiempo_inmunidad > 0.0 or _tiempo_escudo > 0.0 or _tiempo_fantasma > 0.0
+
+
+## Texto con los efectos activos, para el HUD ("IMÁN 4.2s   ESCUDO 2.0s").
+func texto_efectos() -> String:
+	var partes := PackedStringArray()
+	if _tiempo_turbo_gratis > 0.0:
+		partes.append("TURBO %.1fs" % _tiempo_turbo_gratis)
+	if _tiempo_escudo > 0.0:
+		partes.append("ESCUDO %.1fs" % _tiempo_escudo)
+	if _tiempo_fantasma > 0.0:
+		partes.append("FANTASMA %.1fs" % _tiempo_fantasma)
+	if _tiempo_iman > 0.0:
+		partes.append("IMÁN %.1fs" % _tiempo_iman)
+	return "   ".join(partes)
+
+
+func _actualizar_efectos(delta: float) -> void:
+	_tiempo_iman = maxf(_tiempo_iman - delta, 0.0)
+	_tiempo_escudo = maxf(_tiempo_escudo - delta, 0.0)
+	_tiempo_turbo_gratis = maxf(_tiempo_turbo_gratis - delta, 0.0)
+	_tiempo_fantasma = maxf(_tiempo_fantasma - delta, 0.0)
+	# El fantasma vuelve translúcido todo el cuerpo (modulate afecta a los hijos).
+	var objetivo := 0.45 if _tiempo_fantasma > 0.0 else 1.0
+	if not is_equal_approx(modulate.a, objetivo):
+		modulate.a = objetivo
+
+
+## El imán arrastra la comida que tiene cerca hacia la cabeza.
+func _atraer_comida(delta: float) -> void:
+	if _tiempo_iman <= 0.0:
+		return
+	for nodo in get_tree().get_nodes_in_group(Comida.GRUPO):
+		var comida := nodo as Comida
+		if comida == null:
+			continue
+		if global_position.distance_to(comida.global_position) < radio_iman:
+			comida.global_position = comida.global_position.move_toward(
+				global_position, velocidad_iman * delta
+			)
+
+
+# ---------------------------------------------------------------------------
+# 6) CHOQUES: la cabeza muere si toca el cuerpo de OTRO gusano
+# ---------------------------------------------------------------------------
+
 ## Regla de muerte: la cabeza muere si toca el cuerpo de OTRO gusano.
 ## (Tocar el propio cuerpo está permitido, como en slither.io).
 func _chocar_con_cuerpo(segmento: CuerpoSegmento) -> void:
-	if _tiempo_inmunidad > 0.0:
+	if es_invulnerable():
 		return
 	var otro := segmento.dueno
 	if otro == self or not is_instance_valid(otro):
@@ -233,7 +413,7 @@ func _chocar_con_cuerpo(segmento: CuerpoSegmento) -> void:
 
 
 # ---------------------------------------------------------------------------
-# 4) MUERTE: el cuerpo se convierte en comida
+# 7) MUERTE: el cuerpo se convierte en comida
 # ---------------------------------------------------------------------------
 
 ## Muere: avisa al mundo con las posiciones exactas de sus segmentos y desaparece.
@@ -288,3 +468,6 @@ func _draw() -> void:
 		var ojo: Vector2 = hacia_adelante + hacia_lado * lado
 		Dibujo.disco(self, ojo, radio * 0.27, Color.WHITE, bordes_suaves)
 		Dibujo.disco(self, ojo + direccion * radio * 0.1, radio * 0.14, Color.BLACK, bordes_suaves)
+	# Aro del escudo: se ve de un vistazo que eres invulnerable.
+	if _tiempo_escudo > 0.0:
+		draw_arc(Vector2.ZERO, radio * 1.55, 0.0, TAU, 32, Color("b8ffcc"), 2.5, true)
