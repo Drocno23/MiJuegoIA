@@ -97,9 +97,19 @@ func _ejecutar() -> void:
 		_comprobar("1) El mundo se monta", false, "no se pudo cargar %s" % RUTA_MAIN)
 		return
 	var main := escena.instantiate() as Mundo
-	add_child(main)
+	# IMPORTANTE: la configuración va ANTES de add_child(). El mundo se monta en
+	# _ready(), que se ejecuta justo al entrar en el árbol; si tocamos los ajustes
+	# después, la comida y el power-up iniciales ya estarían creados (y el
+	# recuento de la comprobación 1 saldría 151/150).
 	main.comida_por_segundo = 0.0  # Sin comida nueva: así los conteos son exactos.
 	main.powerups_activos = false  # Los power-ups de la prueba se aplican a mano.
+	main.powerup_al_empezar = false  # Sin power-up "de bienvenida".
+	add_child(main)
+	# Congelamos los bots ya mismo, antes del primer frame de física: así no comen
+	# nada (el recuento de comida sería inexacto) ni chocan con el jugador.
+	for nodo in main.contenedor_gusanos.get_children():
+		if nodo is GusanoCPU:
+			(nodo as GusanoCPU).set_physics_process(false)
 	await _esperar_fisica(3)
 
 	var gusano := main.jugador
@@ -117,13 +127,6 @@ func _ejecutar() -> void:
 	if gusano == null:
 		await _limpiar(main)
 		return
-
-	# Congelamos los bots: así ninguna prueba depende de lo que decidan hacer
-	# (sin esto, un bot podía chocar con el jugador en mitad de la prueba).
-	for nodo in main.contenedor_gusanos.get_children():
-		if nodo is GusanoCPU:
-			(nodo as GusanoCPU).set_physics_process(false)
-	await _esperar_fisica(1)
 
 	# ------------------------------------------------- 2) Cuerpo con separación
 	var peor_separacion := 0.0
@@ -301,6 +304,12 @@ func _ejecutar() -> void:
 	# A partir de aquí dejamos todo quieto (posiciones fijas = prueba estable).
 	gusano.set_physics_process(false)
 
+	# Esperamos a que terminen los "pop" pendientes: una comida recién comida
+	# sigue siendo un nodo del árbol 0,12 s mientras dura su animación. Si no
+	# esperamos, alguno se libera en mitad de la comprobación 13 y el recuento
+	# de restos (que es una resta) sale descuadrado.
+	await _esperar_fisica(12)
+
 	# ------------------------------ 12 y 13) Muerte por otro cuerpo y restos
 	# Espía de la señal: comprobamos la muerte por lo que EMITE el gusano, no
 	# leyendo un nodo que puede haberse liberado con queue_free().
@@ -328,18 +337,26 @@ func _ejecutar() -> void:
 	)
 
 	# Los restos se crean con call_deferred(), de ahí la espera extra.
-	await _esperar_fisica(2)
+	await _esperar_fisica(3)
 	var comidas_despues := main.contenedor_comida.get_child_count()
-	var hay_comida_en_el_punto := _hay_comida_en(main, posicion_muerte)
+	# Cuántas de las posiciones que emitió el gusano tienen su comida.
+	var restos_creados := 0
+	for posicion in _posiciones_restos:
+		if _hay_comida_en(main, posicion):
+			restos_creados += 1
+	# El número que manda es el de posiciones que emitió la señal `murio` (una
+	# comida por cada una): así la comprobación no depende de lo que haya comido
+	# o dejado de comer nadie antes.
+	var esperadas := _posiciones_restos.size()
 	_comprobar(
 		"13) Restos: una comida por cada parte del cuerpo",
-		comidas_despues - comidas_antes == largo_al_morir
-			and _posiciones_restos.size() == largo_al_morir
-			and hay_comida_en_el_punto,
-		("+%d comidas (se esperaban %d) | posiciones en la señal: %d | "
-			+ "comida en la posición exacta de la cabeza: %s") % [
-			comidas_despues - comidas_antes, largo_al_morir, _posiciones_restos.size(),
-			"sí" if hay_comida_en_el_punto else "NO",
+		comidas_despues - comidas_antes == esperadas
+			and esperadas == largo_al_morir
+			and restos_creados == esperadas,
+		("+%d comidas | %d posiciones en la señal (longitud al morir: %d) | "
+			+ "comida en cada punto del rastro: %d/%d") % [
+			comidas_despues - comidas_antes, esperadas, largo_al_morir,
+			restos_creados, esperadas,
 		]
 	)
 

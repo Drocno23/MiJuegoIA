@@ -420,7 +420,7 @@ Salida esperada (resumen):
   ✔ 11) HUD: minimapa, clasificación y barra de turbo
   ✔ 12) La cabeza muere al tocar el cuerpo de otro gusano
   ✔ 13) Restos: una comida por cada parte del cuerpo
-        +10 comidas (se esperaban 10) | comida en la posición exacta de la cabeza: sí
+        +10 comidas | 10 posiciones en la señal (longitud al morir: 10) | comida en cada punto del rastro: 10/10
 ---------------------------------------------------------------
   RESULTADO: 14/14 comprobaciones OK   ✔  TODO BIEN
 ===============================================================
