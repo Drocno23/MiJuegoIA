@@ -110,13 +110,16 @@ static func _es_mejor(a: Dictionary, b: Dictionary) -> bool:
 
 
 ## Tabla de mejores partidas lista para enseñar en la pantalla final.
-static func texto_mejores(mejores: Array) -> String:
+## Con `con_titulo = false` se devuelve sin la cabecera (cuando el título ya lo
+## pone un panel, como en la pantalla de muerte).
+static func texto_mejores(mejores: Array, con_titulo := true) -> String:
+	var cabecera := "TUS MEJORES PARTIDAS" if con_titulo else "MEJORES PARTIDAS"
 	if mejores.is_empty():
-		return "TUS MEJORES PARTIDAS\n(todavía no hay ninguna)"
-	var lineas := PackedStringArray(["TUS MEJORES PARTIDAS"])
+		return "%s\n(todavía no hay ninguna)" % cabecera
+	var lineas := PackedStringArray([cabecera])
 	for i in mejores.size():
 		var partida: Dictionary = mejores[i]
-		lineas.append("%d. %s — %d puntos · %d de largo · %s" % [
+		lineas.append("%d.  %s  —  %d puntos · %d de largo · %s" % [
 			i + 1,
 			str(partida.get("nombre", "TÚ")),
 			int(partida.get("puntos", 0)),

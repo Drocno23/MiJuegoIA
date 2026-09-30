@@ -9,7 +9,7 @@
 #  Comandos:
 #    todo       Sincroniza con GitHub + importa recursos + prueba las mecánicas
 #    sync       git pull --rebase (traer lo último de GitHub)
-#    probar     Prueba automática de las 7 mecánicas (headless, ~2 segundos)
+#    probar     Prueba automática de las 22 comprobaciones (headless, ~2 segundos)
 #    importar   Genera .godot/ y los .uid sin abrir ventana
 #    jugar      Ejecuta el juego
 #    editar     Abre el editor de Godot con este proyecto
@@ -241,7 +241,7 @@ ${NEGRITA}herramientas.sh${FIN} — atajos para slither_2d (terminal de VS Code)
   ./herramientas.sh sync --con-cambios
                                Lo mismo, pero apartando tus cambios sin guardar
                                (git stash -u) y devolviéndolos después
-  ./herramientas.sh probar     Prueba automática de las 7 mecánicas (~2 s)
+  ./herramientas.sh probar     Prueba automática (22 comprobaciones, ~2 s)
   ./herramientas.sh importar   Genera .godot/ y los .uid sin abrir ventana
   ./herramientas.sh jugar      Ejecuta el juego
   ./herramientas.sh editar     Abre el editor de Godot

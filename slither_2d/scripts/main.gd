@@ -1,7 +1,7 @@
 class_name Mundo
 extends Node2D
-## Gestor del mundo: crea la comida, los power-ups, al jugador y a los bots,
-## y actualiza el HUD (puntos, turbo, minimapa y clasificación).
+## Gestor del mundo: crea la comida, los power-ups, al jugador y a los bots, y
+## actualiza el HUD (cuatro zonas, sin nada encima de nada).
 ##
 ## NODO AL QUE SE ADJUNTA: el **Node2D raíz** de `escenas/Main.tscn` (escena principal).
 ## Estructura de la escena:
@@ -13,16 +13,18 @@ extends Node2D
 ##   ├── Camara           -> Camera2D    (sigue al jugador)
 ##   ├── Sonido           -> Node2D      (scripts/sonido.gd: audio generado por código)
 ##   └── HUD              -> CanvasLayer
-##       ├── Puntos, Ayuda, Efectos, TurboTexto
-##       ├── TurboFondo/Relleno -> ColorRect (barra de turbo)
-##       ├── Clasificacion      -> Label     (los 5 más largos + récord)
-##       ├── Record             -> Label     (récord y partidas jugadas)
-##       ├── Piel               -> Label     (piel actual: teclas P y O)
-##       ├── Aviso              -> Label     (avisos que se desvanecen)
-##       ├── Minimapa           -> Control   (scripts/minimapa.gd)
-##       ├── Audio              -> Label     ("M: silencio · MÚSICA: ON (N)")
-##       └── Final              -> Control   (fin de partida: resumen, mejores
-##                                            partidas y campo del apodo)
+##       ├── ArribaIzquierda -> VBoxContainer (Puntos, Record, Piel)
+##       ├── Aviso           -> Label      (avisos que se desvanecen)
+##       ├── ArribaDerecha   -> VBoxContainer
+##       │   ├── Minimapa    -> Control    (scripts/minimapa.gd)
+##       │   └── Clasificacion -> PanelContainer ("CLASIFICACIÓN": 5 filas y pie)
+##       ├── Efectos, TurboTexto, TurboFondo/Relleno (abajo a la izquierda)
+##       ├── Audio, FPS      -> Label      (abajo a la derecha)
+##       ├── Ayuda           -> Label      (abajo en el centro)
+##       ├── Final           -> Control    (fin de partida: un panel con TODO
+##       │                                   dentro de contenedores, así que no se
+##       │                                   puede amontonar)
+##       └── Pausa           -> Pausa.tscn (menú de ESC, se abre encima)
 ##
 ## Lo que se recuerda entre partidas (récord, estadísticas, piel y apodo) vive en
 ## `scripts/records.gd` y se guarda en `user://records.cfg` (tu perfil de Godot).
@@ -36,6 +38,7 @@ const COLOR_RESTOS := Color("ff9d3d")  ## Naranja para los restos de un gusano m
 const COLOR_SOLTADO := Color("ffd54a")  ## Comida que suelta el turbo al acelerar.
 const ANCHO_BARRA_TURBO := 220.0  ## Ancho de la barra de turbo del HUD.
 const SEGMENTOS_TURBO_LLENO := 20.0  ## Segmentos que llenan la barra de turbo.
+const MAX_FILAS_CLASIFICACION := 5  ## Filas del marcador (los 5 más largos).
 
 @export_group("Comida")
 @export var comida_inicial: int = 150  ## Cuánta comida hay al empezar.
@@ -73,26 +76,34 @@ var _temporizador_powerup := 0.0
 var _temporizador_clasificacion := 0.0
 var _contador_bots := 0
 var _generacion := 0  ## Sube al reiniciar, para que los bots viejos no reaparezcan.
+## Filas del marcador (se crean una vez y se rellenan; ver `_preparar_clasificacion`).
+var _filas_clasificacion: Array = []
 
 @onready var contenedor_comida: Node2D = $ContenedorComida
 @onready var contenedor_gusanos: Node2D = $Gusanos
 @onready var camara: Camera2D = $Camara
-@onready var etiqueta_puntos: Label = $HUD/Puntos
+@onready var etiqueta_puntos: Label = $HUD/ArribaIzquierda/Puntos
+@onready var etiqueta_record: Label = $HUD/ArribaIzquierda/Record
+@onready var etiqueta_piel: Label = $HUD/ArribaIzquierda/Piel
 @onready var etiqueta_ayuda: Label = $HUD/Ayuda
 @onready var etiqueta_efectos: Label = $HUD/Efectos
 @onready var etiqueta_turbo: Label = $HUD/TurboTexto
 @onready var turbo_relleno: ColorRect = $HUD/TurboFondo/Relleno
-@onready var etiqueta_clasificacion: Label = $HUD/Clasificacion
 @onready var etiqueta_audio: Label = $HUD/Audio
-@onready var etiqueta_record: Label = $HUD/Record
-@onready var etiqueta_piel: Label = $HUD/Piel
+@onready var etiqueta_fps: Label = $HUD/FPS
 @onready var etiqueta_aviso: Label = $HUD/Aviso
-@onready var etiqueta_estadisticas: Label = $HUD/Final/Estadisticas
-@onready var etiqueta_mejores: Label = $HUD/Final/Mejores
-@onready var campo_apodo: LineEdit = $HUD/Final/Apodo
+@onready var filas_clasificacion: VBoxContainer = $HUD/ArribaDerecha/Clasificacion/Caja/Filas
+@onready var pie_clasificacion: Label = $HUD/ArribaDerecha/Clasificacion/Caja/Pie
 @onready var sonido: Sonido = $Sonido
 @onready var pantalla_final: Control = $HUD/Final
-@onready var etiqueta_final: Label = $HUD/Final/Texto
+@onready var etiqueta_final: Label = $HUD/Final/Centro/Panel/Caja/Titulo
+@onready var etiqueta_estadisticas: Label = $HUD/Final/Centro/Panel/Caja/Estadisticas
+@onready var etiqueta_mejores: Label = $HUD/Final/Centro/Panel/Caja/Mejores
+@onready var campo_apodo: LineEdit = $HUD/Final/Centro/Panel/Caja/FilaApodo/Apodo
+@onready var boton_reintentar: Button = $HUD/Final/Centro/Panel/Caja/Botones/Reintentar
+@onready var boton_menu_final: Button = $HUD/Final/Centro/Panel/Caja/Botones/Menu
+@onready var boton_salir_final: Button = $HUD/Final/Centro/Panel/Caja/Botones/Salir
+@onready var pausa: Pausa = $HUD/Pausa
 
 
 func _ready() -> void:
@@ -103,6 +114,12 @@ func _ready() -> void:
 		Records.guardar(datos)
 	campo_apodo.text_submitted.connect(_on_apodo_escrito)
 	campo_apodo.focus_exited.connect(_guardar_apodo)
+
+	# 2) Interfaz montada por código: estilo, filas del marcador y botones.
+	_estilizar_hud()
+	_preparar_clasificacion()
+	_conectar_interfaz()
+	_mostrar_fps(bool(Ajustes.cargar().get("mostrar_fps", false)))
 
 	_asegurar_accion_turbo()
 	_crear_jugador()
@@ -116,7 +133,6 @@ func _ready() -> void:
 	_actualizar_hud()
 	_actualizar_clasificacion()
 	_actualizar_audio()
-	_actualizar_piel_hud()
 	_actualizar_piel_hud()
 	_mostrar_ayuda()
 
@@ -133,6 +149,8 @@ func _process(delta: float) -> void:
 	if _temporizador_clasificacion <= 0.0:
 		_temporizador_clasificacion = intervalo_clasificacion
 		_actualizar_clasificacion()
+	if etiqueta_fps.visible:
+		etiqueta_fps.text = "%d FPS" % Engine.get_frames_per_second()
 
 
 func _input(evento: InputEvent) -> void:
@@ -147,13 +165,12 @@ func _input(evento: InputEvent) -> void:
 	# Atajos de estilo y audio: M, N, P y O.
 	if _atajo_de_estilo(evento):
 		return
-	# Reinicio: ESPACIO/ENTER (acción ui_accept) o clic del ratón.
-	if not pantalla_final.visible:
+	# ESC: menú de pausa (o volver al menú principal desde la pantalla de muerte).
+	if evento.is_action_pressed("ui_cancel"):
+		_alternar_pausa()
 		return
-	var es_clic := false
-	if evento is InputEventMouseButton:
-		es_clic = (evento as InputEventMouseButton).pressed
-	if evento.is_action_pressed("ui_accept") or es_clic:
+	# Reinicio: ESPACIO/ENTER cuando la partida ha terminado.
+	if pantalla_final.visible and evento.is_action_pressed("ui_accept"):
 		_reiniciar_partida()
 
 
@@ -446,7 +463,8 @@ func _actualizar_hud() -> void:
 	]
 
 
-## Marcador con los 5 gusanos más largos y el récord de la partida.
+## Marcador de la derecha (justo debajo del minimapa): los 5 gusanos más largos,
+## con la longitud alineada a la derecha y tu fila en negrita y en verde.
 func _actualizar_clasificacion() -> void:
 	var gusanos: Array[Gusano] = []
 	for nodo in contenedor_gusanos.get_children():
@@ -455,16 +473,28 @@ func _actualizar_clasificacion() -> void:
 			gusanos.append(gusano)
 	gusanos.sort_custom(func(a: Gusano, b: Gusano) -> bool: return a.longitud() > b.longitud())
 
-	var lineas := PackedStringArray(["CLASIFICACIÓN"])
-	for i in mini(gusanos.size(), 5):
+	for i in _filas_clasificacion.size():
+		var fila: Dictionary = _filas_clasificacion[i]
+		var mostrar := i < gusanos.size()
+		(fila["fila"] as Control).visible = mostrar
+		if not mostrar:
+			continue
 		var gusano := gusanos[i]
-		var etiqueta := gusano.nombre if gusano.nombre != "" else "Bot"
-		var marca := "  ★ TÚ" if gusano == jugador else ""
-		lineas.append("%d. %s — %d%s" % [i + 1, etiqueta, gusano.longitud(), marca])
-	lineas.append("Mejor marca: %d puntos · %d de largo" % [
+		var propio := gusano == jugador
+		var nombre := "TÚ" if propio else (gusano.nombre if gusano.nombre != "" else "Bot")
+		var etiqueta_nombre := fila["nombre"] as Label
+		var etiqueta_marca := fila["marca"] as Label
+		etiqueta_nombre.text = "%d. %s" % [i + 1, nombre]
+		etiqueta_marca.text = "%d" % gusano.longitud()
+		if propio:
+			Estilo.estilizar_destacado(etiqueta_nombre, 15, Estilo.ACENTO)
+			Estilo.estilizar_destacado(etiqueta_marca, 15, Estilo.ACENTO)
+		else:
+			Estilo.estilizar_texto(etiqueta_nombre, 15, Estilo.TEXTO_SUAVE)
+			Estilo.estilizar_texto(etiqueta_marca, 15, Estilo.TEXTO)
+	pie_clasificacion.text = "Mejor marca: %d pts · %d de largo" % [
 		int(datos.get("record_puntos", 0)), int(datos.get("record_longitud", 0)),
-	])
-	etiqueta_clasificacion.text = "\n".join(lineas)
+	]
 
 
 ## Rótulo del HUD con el estado del audio (se refresca con M y con N).
@@ -591,31 +621,36 @@ func _terminar_partida() -> void:
 	_guardar_resultados()
 
 	var apodo := str(datos.get("nombre", "TÚ"))
-	var extra := "\n¡NUEVO RÉCORD DE PUNTOS!" if _nuevo_record else ""
-	etiqueta_final.text = (
-		"¡TE HAN COMIDO, %s!\n\nPuntos: %d%s\nLongitud: %d\n\n"
-		+ "Pulsa ESPACIO o haz clic para volver a jugar"
-	) % [apodo.to_upper(), _puntos, extra, _record]
+	etiqueta_final.text = "¡TE HAN COMIDO, %s!" % apodo.to_upper()
+	var extra := "   ·   ¡NUEVO RÉCORD DE PUNTOS!" if _nuevo_record else ""
 	etiqueta_estadisticas.text = (
-		"Partidas: %d  ·  Comida: %d  ·  Bots: %d  ·  Tiempo jugado: %s\n"
-		+ "Récord: %d puntos · %d de largo"
+		"Puntos: %d%s   ·   Longitud: %d   ·   Comida: %d   ·   Bots: %d   ·   Tiempo: %s\n"
+		+ "Partidas jugadas: %d   ·   Récord: %d puntos y %d de largo"
 	) % [
+		_puntos,
+		extra,
+		_record,
+		_comida_partida,
+		_bots_comidos,
+		Records.texto_tiempo(_tiempo_partida),
 		int(datos.get("partidas", 0)),
-		int(datos.get("comida", 0)),
-		int(datos.get("bots", 0)),
-		Records.texto_tiempo(float(datos.get("tiempo", 0.0))),
 		int(datos.get("record_puntos", 0)),
 		int(datos.get("record_longitud", 0)),
 	]
-	etiqueta_mejores.text = Records.texto_mejores(datos.get("mejores", []) as Array)
+	etiqueta_mejores.text = Records.texto_mejores(datos.get("mejores", []) as Array, false)
 	campo_apodo.text = apodo
 	pantalla_final.visible = true
+	boton_reintentar.grab_focus()
 	# Golpe grave de cierre, además del sonido de muerte del gusano. Suena donde
 	# está la cámara (el gusano ya no existe, pero la cámara sigue ahí).
 	sonido.tocar("fin", camara.global_position)
 
 
 func _reiniciar_partida() -> void:
+	# Si venimos de la pausa (o del panel de fin de partida), dejamos todo listo.
+	get_tree().paused = false
+	if pausa != null:
+		pausa.cerrar()
 	_generacion += 1
 	pantalla_final.visible = false
 	campo_apodo.release_focus()
@@ -648,3 +683,87 @@ func _reiniciar_partida() -> void:
 		_aparecer_powerup()
 	_actualizar_hud()
 	_actualizar_clasificacion()
+
+
+
+# ---------------------------------------------------------------------------
+# Interfaz: estilo, marcador, pausa y menú
+# ---------------------------------------------------------------------------
+
+## Aplica el estilo del juego a las piezas del HUD que no traen tema puesto en
+## `Main.tscn` (paneles, el campo del apodo y los botones del final de partida).
+func _estilizar_hud() -> void:
+	Estilo.estilizar_panel($HUD/ArribaDerecha/Clasificacion)
+	Estilo.estilizar_panel($HUD/Final/Centro/Panel)
+	Estilo.estilizar_campo(campo_apodo)
+	Estilo.estilizar_boton(boton_reintentar, true)
+	Estilo.estilizar_boton(boton_menu_final)
+	Estilo.estilizar_boton(boton_salir_final, true, Estilo.PELIGRO)
+	Estilo.estilizar_texto(etiqueta_fps, Estilo.PEQUENO, Estilo.TEXTO_SUAVE)
+
+
+## Crea las cinco filas del marcador una sola vez (luego solo se rellenan): así el
+## marcador no crea ni destruye nodos cuatro veces por segundo.
+func _preparar_clasificacion() -> void:
+	_filas_clasificacion.clear()
+	for i in MAX_FILAS_CLASIFICACION:
+		var fila := HBoxContainer.new()
+		fila.name = "Fila%d" % (i + 1)
+		fila.add_theme_constant_override("separation", 6)
+		var nombre := Label.new()
+		nombre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nombre.clip_text = true
+		fila.add_child(nombre)
+		var marca := Label.new()
+		marca.custom_minimum_size = Vector2(38, 0)
+		marca.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		fila.add_child(marca)
+		filas_clasificacion.add_child(fila)
+		_filas_clasificacion.append({"fila": fila, "nombre": nombre, "marca": marca})
+
+
+## Conecta los botones del final de partida y los del menú de pausa (por señales:
+## `pausa.gd` no sabe nada de la partida, solo avisa de lo que pulsa el jugador).
+func _conectar_interfaz() -> void:
+	boton_reintentar.pressed.connect(_reiniciar_partida)
+	boton_menu_final.pressed.connect(_ir_al_menu)
+	boton_salir_final.pressed.connect(Gestor.salir)
+	pausa.configurar(sonido)
+	pausa.continuar.connect(_reanudar)
+	pausa.reiniciar.connect(_reiniciar_partida)
+	pausa.al_menu.connect(_ir_al_menu)
+	pausa.salir_juego.connect(Gestor.salir)
+
+
+## ESC: abre o cierra la pausa. El árbol se detiene con `get_tree().paused`, y el
+## menú de pausa sigue funcionando porque su nodo raíz lleva `process_mode = ALWAYS`.
+func _alternar_pausa() -> void:
+	if pantalla_final.visible:
+		_ir_al_menu()
+		return
+	if get_tree().paused:
+		_reanudar()
+		return
+	get_tree().paused = true
+	pausa.abrir()
+	sonido.tocar("clic", camara.global_position)
+
+
+func _reanudar() -> void:
+	if pausa != null:
+		pausa.cerrar()
+	get_tree().paused = false
+
+
+## Vuelve al menú principal (con fundido) desde la pausa o desde el final.
+func _ir_al_menu() -> void:
+	get_tree().paused = false
+	if pausa != null:
+		pausa.cerrar()
+	Gestor.ir_al_menu(self)
+
+
+## Enseña u oculta el contador de FPS (ajuste "mostrar_fps" de Opciones).
+func _mostrar_fps(mostrar: bool) -> void:
+	if etiqueta_fps != null:
+		etiqueta_fps.visible = mostrar

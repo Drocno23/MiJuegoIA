@@ -17,13 +17,17 @@ Prototipo 2D tipo [slither.io](http://slither.io) dentro de un espacio "infinito
 
 1. Abre Godot 4.7 → **Importar** → selecciona esta carpeta
    (`slither_2d/project.godot`).
-2. Pulsa **F5** (la escena principal ya está configurada: `escenas/Main.tscn`).
-3. Mueve el ratón para dirigir al gusano y pulsa **SHIFT** (o el botón derecho)
-   para el **TURBO**. Cuando mueras, **ESPACIO** o clic para reiniciar.
+2. Pulsa **F5**: arranca en la **pantalla de carga** y de ahí pasa sola al
+   **menú principal** (la escena principal es `escenas/Carga.tscn`; el juego está
+   en `escenas/Main.tscn`).
+3. En el menú, **JUGAR**. Mueve el ratón para dirigir al gusano y pulsa **SHIFT**
+   (o el botón derecho) para el **TURBO**. Al morir, **ESPACIO/ENTER** o los
+   botones del panel vuelven a jugar, y **ESC** abre la **pausa**.
 
-Controles: **ratón** = dirigir · **SHIFT / clic derecho** = turbo · **ESPACIO / clic** =
-reiniciar · **M** = silencio · **N** = música (normal → bajita → apagada) ·
-**P** = paleta de color · **O** = patrón del cuerpo (las pieles que tengas desbloqueadas).
+Controles: **ratón** = dirigir · **SHIFT / clic derecho** = turbo ·
+**ESC** = pausa (continuar, reiniciar, audio, menú) · **ESPACIO / ENTER** =
+reiniciar al morir · **M** = silencio · **N** = música (normal → bajita →
+apagada) · **P** = paleta de color · **O** = patrón del cuerpo.
 
 > 🔉 **El juego suena, y no hay ni un archivo de audio**: los efectos y la música se
 > generan por código (`scripts/sonido.gd`). Ver "Sonido" más abajo.
@@ -40,8 +44,9 @@ reiniciar · **M** = silencio · **N** = música (normal → bajita → apagada)
 
 ### ✅ Comprobar que todo funciona
 
-Prueba automática de las 19 comprobaciones (sin abrir ventana, unos segundos):
-primero que los scripts cargan, y después las mecánicas una por una.
+Prueba automática de las **22 comprobaciones** (sin abrir ventana, unos
+segundos): primero que los scripts cargan, después las mecánicas una por una y,
+al final, las pantallas de menú y los ajustes.
 
 ```bash
 cd slither_2d
@@ -64,7 +69,15 @@ slither_2d/
 ├── project.godot
 ├── icon.svg
 ├── escenas/
-│   ├── Main.tscn          Escena principal (mundo + HUD)
+│   ├── Carga.tscn         ESCENA PRINCIPAL: pantalla de carga con barra y consejos
+│   ├── MenuPrincipal.tscn Menú: jugar, pieles, récords, opciones, cómo jugar, créditos
+│   ├── Seleccion.tscn     Selección de piel con vista previa girando
+│   ├── Records.tscn       Récords, estadísticas y logros con barras de progreso
+│   ├── Opciones.tscn      Audio (volúmenes), pantalla completa y mostrar FPS
+│   ├── ComoJugar.tscn     Controles, reglas y power-ups
+│   ├── Creditos.tscn      Créditos
+│   ├── Pausa.tscn         Menú de ESC (vive dentro del HUD de Main.tscn)
+│   ├── Main.tscn          El juego: mundo + HUD de 4 zonas
 │   ├── Gusano.tscn        Gusano jugador (la cabeza es la raíz)
 │   ├── GusanoCPU.tscn     Escena HEREDADA de Gusano.tscn con el script de bot
 │   ├── Segmento.tscn      Un segmento del cuerpo
@@ -74,14 +87,27 @@ slither_2d/
 │   ├── cuerpo_segmento.gd   ⭐ un segmento del cuerpo
 │   ├── comida.gd            ⭐ la comida
 │   ├── gusano_cpu.gd        IA de los bots (hereda de Gusano)
-│   ├── main.gd              mundo: spawnea comida/bots, HUD y reinicio
+│   ├── main.gd              mundo: spawnea comida/bots, HUD, pausa y reinicio
 │   ├── dibujo.gd            utilidad de dibujo (círculos con borde suave)
-│   └── fondo.gd             cuadrícula infinita de fondo
+│   ├── fondo.gd             cuadrícula infinita de fondo
+│   ├── estilo.gd            ⭐ paleta, fuentes y cajas de TODA la interfaz
+│   ├── ajustes.gd           ⭐ ajustes del jugador en user://ajustes.cfg
+│   ├── gestor.gd            ⭐ catálogo de escenas y fundidos entre pantallas
+│   ├── pantalla.gd          ⭐ base de las pantallas de menú (armazón + ayudantes)
+│   ├── carga.gd             pantalla de carga (barra real, consejos, versión)
+│   ├── menu_principal.gd    menú principal
+│   ├── seleccion.gd         catálogo de paletas y patrones
+│   ├── vista_previa.gd      el gusano de muestra que gira en Selección
+│   ├── pantalla_records.gd  récords, estadísticas y logros
+│   ├── opciones.gd          sonido, pantalla y extras
+│   ├── como_jugar.gd        controles y reglas
+│   ├── creditos.gd          créditos
+│   └── pausa.gd             menú de pausa (ESC)
 ├── tests/
 │   ├── PruebaMecanicas.tscn  Escena de la prueba automática
-│   └── prueba_mecanicas.gd   Comprueba las 4 mecánicas en 7 pasos
+│   └── prueba_mecanicas.gd   22 comprobaciones de mecánicas, HUD y pantallas
 ├── herramientas.sh        Atajos de terminal (sync, probar, jugar, subir...)
-└── .vscode/               Ajustes y 18 tareas listas para VS Code
+└── .vscode/               Ajustes y tareas listas para VS Code
 └── preview/               capturas simuladas del aspecto (no hacen falta para jugar)
     ├── aspecto.png
     ├── detalle_bordes.png
@@ -104,6 +130,20 @@ slither_2d/
 | `fondo.gd` | **`Node2D`** hijo de Main | `escenas/Main.tscn` |
 | `minimapa.gd` | **`Control`** hijo de `HUD` | `escenas/Main.tscn` |
 | `sonido.gd` | **`Node2D`** hijo de Main (crea sus propios reproductores) | `escenas/Main.tscn` |
+| `estilo.gd` | *a ningún nodo*: colores, fuentes y cajas de la interfaz (utilidades estáticas) | — |
+| `ajustes.gd` | *a ningún nodo*: ajustes del jugador en `user://ajustes.cfg` (utilidades estáticas) | — |
+| `gestor.gd` | *a ningún nodo*: catálogo de escenas y transiciones con fundido | — |
+| `pantalla.gd` | **`Control`** raíz de cada escena de menú; las demás heredan de él | `escenas/*.tscn` |
+| `carga.gd` | **`Control`** raíz | `escenas/Carga.tscn` |
+| `menu_principal.gd` | **`Control`** raíz | `escenas/MenuPrincipal.tscn` |
+| `seleccion.gd` | **`Control`** raíz | `escenas/Seleccion.tscn` |
+| `vista_previa.gd` | **`Control`** dentro del panel de la vista previa | `escenas/Seleccion.tscn` (por código) |
+| `pantalla_records.gd` | **`Control`** raíz | `escenas/Records.tscn` |
+| `opciones.gd` | **`Control`** raíz | `escenas/Opciones.tscn` |
+| `como_jugar.gd` | **`Control`** raíz | `escenas/ComoJugar.tscn` |
+| `creditos.gd` | **`Control`** raíz | `escenas/Creditos.tscn` |
+| `pausa.gd` | **`Control`** dentro del `HUD` de Main (`process_mode = ALWAYS`) | `escenas/Pausa.tscn` |
+| `fondo_menu.gd` | **`Node2D`** que crea `pantalla.gd` por código (gusanos de adorno) | — |
 | `pieles.gd` | *a ningún nodo*: catálogo de paletas/patrones y logros (utilidades estáticas) | — |
 | `records.gd` | *a ningún nodo*: récord, estadísticas y apodo en `user://records.cfg` | — |
 | `dibujo.gd` | *a ningún nodo*: es una clase de utilidades estáticas (`Dibujo.disco(...)`) | — |
@@ -288,9 +328,12 @@ deciden cuánto mundo entra en el cuadro.
 
 ### 9) Marcador de los más largos (`main.gd`)
 
-Arriba en el centro: **TOP 5** de gusanos ordenados por longitud (`sort_custom`),
-con **TÚ** marcado con una estrella, más el **récord** de la partida. Se refresca
-cada `intervalo_clasificacion` (0.25 s), no en cada frame.
+En el panel **debajo del minimapa** (arriba a la derecha, el mismo ancho): **TOP 5**
+de gusanos ordenados por longitud (`sort_custom`), con los números alineados a la
+derecha, **tu fila en negrita y en verde** y el récord de la partida en el pie. Las
+cinco filas se crean una sola vez (`_preparar_clasificacion()`) y después solo se
+rellenan: no se crean ni se destruyen nodos mientras juegas. Se refresca cada
+`intervalo_clasificacion` (0.25 s), no en cada frame.
 
 ### 10) Sonido (`sonido.gd`) — generado por código
 
@@ -382,10 +425,52 @@ sin miedo):
 * **Top 5 de tus mejores partidas** (puntos, longitud y fecha), en la pantalla final,
   estilo arcade.
 * **Tu apodo**: por defecto el usuario de tu sistema; se cambia escribiéndolo en la
-  pantalla de muerte (campo "Tu apodo:") y sale en la tabla de mejores partidas.
+  pantalla de muerte (campo "Tu apodo:") o en la pantalla **RÉCORDS Y LOGROS**, y
+  sale en la tabla de mejores partidas.
 
 > 💡 El archivo se llama `records.cfg` y está en
 > `~/.local/share/godot/app_userdata/<proyecto>/`. Borrarlo = empezar de cero.
+
+### 13) Interfaz completa: pantallas, pausa y HUD de 4 zonas
+
+El juego tiene **ocho pantallas de menú** (además del propio juego), todas
+montadas por código con **contenedores** (`VBoxContainer`, `HBoxContainer`,
+`CenterContainer`, `GridContainer`), que es lo que hace imposible que dos textos
+se monten uno encima de otro:
+
+| Pantalla | Qué tiene |
+|---|---|
+| **Carga** (`Carga.tscn`) | Barra de progreso con trabajo **real** (perfil, ajustes, precarga de escenas, síntesis de sonidos), consejos que rotan, versión y "Pulsa ESPACIO o haz clic" |
+| **Menú principal** | Botones (JUGAR, pieles, récords, opciones, cómo jugar, créditos, salir) + ficha de perfil y mejores partidas; fondo con gusanos de adorno |
+| **Selección de piel** | Vista previa del gusano **girando** (con las mismas funciones que el juego) + cuadrículas de paletas y patrones, con las bloqueadas apagadas y su requisito |
+| **Récords y logros** | Estadísticas, top 5, los 9 logros con **barras de progreso** y qué piel desbloquea cada uno, apodo editable y borrado con confirmación |
+| **Opciones** | Silencio, música (normal/bajita/apagada), volumen de efectos y de música (deslizadores), pantalla completa, mostrar FPS, restablecer |
+| **Cómo jugar** | Tabla de controles, reglas y power-ups |
+| **Créditos** | Quién ha hecho qué (y con qué) |
+| **Pausa** | Se abre con **ESC** encima de la partida (velo translúcido): continuar, reiniciar, audio rápido, menú principal y salir |
+
+Detalles de cómo está hecho (y por qué así):
+
+* **`gestor.gd`** guarda las rutas de todas las escenas y hace el **fundido** de
+  transición. No es un autoload: cada función recibe el nodo desde el que se llama
+  y busca dónde poner el fundido (la propia pantalla o el `HUD` del juego).
+* **`pantalla.gd`** es la base de los menús: crea el fondo, el audio de interfaz y
+  ofrece los ayudantes (`crear_armazon()`, `anadir_panel()`, `boton()`, `barra()`,
+  `fila_de_datos()`...). Cada pantalla solo dice **qué** enseña.
+* **La pausa de verdad** (`get_tree().paused = true`): el nodo de `Pausa.tscn` lleva
+  `process_mode = ALWAYS`, así que sus botones siguen vivos con el árbol parado. No
+  cambia de escena (no se pierde la partida) y avisa a `main.gd` con señales.
+* **HUD en 4 zonas** dentro de `Main.tscn`: arriba a la izquierda (puntos, récord y
+  piel), arriba a la derecha (minimapa + clasificación), abajo a la izquierda
+  (efectos, turbo) y abajo a la derecha (audio y FPS). Los avisos van arriba en el
+  centro y la ayuda abajo en el centro, con hueco de sobra entre zonas.
+* **Pantalla de muerte con contenedores**: un `CenterContainer` → `PanelContainer` →
+  `VBoxContainer` con título, estadísticas, mejores partidas, apodo y botones. El
+  panel crece con el texto, así que **nunca** se solapa (era el problema de los
+  offsets fijos de antes).
+* **Los ajustes no se pisan entre sí**: `ajustes.gd` guarda en dos secciones
+  (`audio` y `pantalla`) y cada `guardar()` carga primero lo que hay, así que
+  cambiar el volumen no borra el "mostrar FPS" ni al revés.
 
 ---
 

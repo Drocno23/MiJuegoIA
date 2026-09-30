@@ -276,7 +276,7 @@ está recargado**. Y si cambias una escena en Godot, se guarda sola al pasar a V
 | `bash: [herramientas.sh](http://herramientas.sh): No existe el fichero o el directorio` | No es un error de Linux: el nombre del archivo se convirtió en un **enlace de chat** al copiarlo. Escribe el comando a mano, sin corchetes ni paréntesis: `./herramientas.sh todo` |
 | `Parse Error: Could not find type "X" in the current scope` (y en VS Code, "Could not find type X") | **Casi siempre es un error en el propio script X**, no en el que se queja. Busca antes en la consola la línea `Parse Error` de `scripts/x.gd`: si ese archivo no compila, la clase `X` no se registra y todos los que la usan fallan en cascada. Arregla el error de `x.gd`, y después `./herramientas.sh todo` (el `--import` vuelve a registrar las clases). Si sigue: `rm -rf .godot && ./herramientas.sh importar` y reinicia el *Language Server* de VS Code (`F1 → Godot Tools: Restart Language Server`). |
 | `Cannot infer the type of "algo" variable because the value doesn't have a set type` | Pasa cuando usas `:=` con un valor de tipo desconocido, típicamente sacado de un Array sin tipo o de un Dictionary (`var x := ["a","b"][i]`). Soluciones: `var x: String = ...` (tipo explícito) o, mejor, una función con `match` que devuelva el tipo. Ojo: `gdlint`/`gdparse` **no** detectan esto; solo lo ve el compilador de Godot. |
-| Errores en el EDITOR de Godot o en VS Code que la prueba ya no da | Son **errores viejos en caché**: el editor guarda los scripts parseados y la lista de clases globales en `.godot/`. Solución: cierra y vuelve a abrir el editor de Godot (`Proyecto → Recargar proyecto actual`) y, en VS Code, `F1 → Godot Tools: Restart Language Server`. Si sigue igual: `rm -rf .godot && ./herramientas.sh importar`. Fíjate en la prueba automática: si su comprobación 0 dice que los 11 scripts cargan, tu código está bien. |
+| Errores en el EDITOR de Godot o en VS Code que la prueba ya no da | Son **errores viejos en caché**: el editor guarda los scripts parseados y la lista de clases globales en `.godot/`. Solución: cierra y vuelve a abrir el editor de Godot (`Proyecto → Recargar proyecto actual`) y, en VS Code, `F1 → Godot Tools: Restart Language Server`. Si sigue igual: `rm -rf .godot && ./herramientas.sh importar`. Fíjate en la prueba automática: si su comprobación 0 dice que los 25 scripts cargan, tu código está bien. |
 | `Cannot infer the type of "X" variable because the value doesn't have a set type` | GDScript no puede deducir el tipo: pasa al recorrer listas sin tipar (`for x in [-1.0, 1.0]`). Solución: tipar la colección (`PackedFloat32Array([-1.0, 1.0])`) o anotar la variable (`var ojo: Vector2 = ...`). |
 | `ERROR: Can't change this state while flushing queries. Use call_deferred() or set_deferred() to change monitoring state instead.` | Se creó un nodo con forma de colisión (un segmento, una comida) **dentro** de un callback de física, como la señal `area_entered` al comer. Solución: crearlos en diferido (`crecer_diferido()` en `gusano.gd`, `_esparcir_restos.call_deferred()` en `main.gd`). Ya está resuelto; si reaparece al añadir código nuevo, usa el mismo patrón. |
 | `SCRIPT ERROR: Parse Error: Cannot find member "X" in base "Y"` | **Error real de GDScript**: ese método no existe en ese tipo (nos pasó con `push_front` en un `PackedVector2Array`, que solo tiene `insert`). No es un problema de tu instalación: hay que corregir el script. La prueba automática lo detecta en la comprobación 0 (antes incluso de montar el mundo). |
@@ -356,7 +356,7 @@ Y el resto de atajos:
 
 | Comando | Qué hace |
 |---|---|
-| `./herramientas.sh todo` | `git pull --rebase` + `--import` + prueba (19 comprobaciones) |
+| `./herramientas.sh todo` | `git pull --rebase` + `--import` + prueba (22 comprobaciones) |
 | `./herramientas.sh todo --con-cambios` | Lo mismo, apartando antes los cambios sin guardar |
 | `./herramientas.sh sync` | Traer lo último de GitHub (se niega si hay cambios sin guardar y te da 3 opciones) |
 | `./herramientas.sh sync --con-cambios` | Lo mismo, pero apartando tus cambios con `git stash -u` y devolviéndolos después (perfecto para los `.uid` y los re-guardados de Godot) |
@@ -401,7 +401,7 @@ Salida esperada (resumen):
   Godot 4.7.2.stable.official   |   /home/tu_usuario/MiJuegoIA/slither_2d/
 ===============================================================
   ✔  0) Los scripts del juego se cargan
-        11 scripts cargados sin errores
+        25 scripts cargados sin errores
   ✔  1) El mundo se monta
         jugador: ok | bots: 7/7 | comidas: 150/150
   ✔  2) Cuerpo: segmentos con separación fija
@@ -433,21 +433,31 @@ Salida esperada (resumen):
         +10 comidas | 10 posiciones en la señal (longitud al morir: 10) | comida en cada punto del rastro: 10/10
   ✔ 18) El récord, las estadísticas y el top 5 se guardan
         partida guardada al morir: sí | récord releído: 321 puntos | paleta: 2 | apodo: PROBADOR | top 5 (la 1ª con 70 puntos)
+  ✔ 19) Las 8 pantallas de menú existen y se instancian
+        escenas: 8 | versión: 0.9.0
+  ✔ 20) Los ajustes se guardan, se releen y no se pisan entre secciones
+        música: 1 | efectos: -12 dB | FPS: on | silencio tras el 2º guardado: sí
+  ✔ 21) Estilo, efectos de menú y recompensa de los logros
+        efectos: blip 882 muestras, clic 1102 muestras | música 0 = MÚSICA: OFF | comida_25 desbloquea: Paleta Neón
+  ✔ 22) La pantalla de Opciones se monta (paneles, botones y deslizadores)
+        paneles: 3 | botones: 6 | deslizadores: 2
 ---------------------------------------------------------------
-  RESULTADO: 19/19 comprobaciones OK   ✔  TODO BIEN
+  RESULTADO: 22/22 comprobaciones OK   ✔  TODO BIEN
 ===============================================================
 ```
 
-Son **19 comprobaciones**: la 0 (todos los scripts cargan) + las 18 de mecánicas.
+Son **22 comprobaciones**: la 0 (todos los scripts cargan) + las 18 de mecánicas
+y el HUD + las 4 nuevas (pantallas, ajustes, estilo y una pantalla de menú montada
+de verdad).
 (los números entre paréntesis son de una partida de ejemplo: como el mundo lleva
 algo de azar —posición de la comida, tipo de power-up— pueden variar un poco;
-lo que importa es que todas salgan con ✔ y que el resultado sea `19/19`).
+lo que importa es que todas salgan con ✔ y que el resultado sea `22/22`).
 
 Es la misma prueba que puedes lanzar desde VS Code con
 **F1 → `Tasks: Run Task` → `Probar: mecánicas (headless)`**.
 El código de salida (0/1) permite usarla también en un script de CI.
 
-> 💡 La **comprobación 0** es la más útil del día a día: carga los 11 scripts del
+> 💡 La **comprobación 0** es la más útil del día a día: carga los 25 scripts del
 > juego y, si alguno tiene un error de sintaxis o de API (un método que no
 > existe), lo dice ahí arriba y en claro, en vez de fallar más adelante con una
 > cascada de errores difíciles de leer. Un linter solo ve la sintaxis; esto
@@ -466,12 +476,12 @@ cd ~/MiJuegoIA/slither_2d && godot        # o la tarea "Godot: jugar"
 | 2 | Pasa por encima de la comida amarilla | Desaparece con un "pop", suben **PUNTOS** y **LONGITUD**, y la bola nueva aparece al final de la cola |
 | 3 | Cruza delante de un bot | Si **su** cabeza toca **tu** cuerpo, el bot muere y deja comida **naranja** en su rastro |
 | 4 | Choca **tu** cabeza contra el cuerpo de un bot | Pantalla **"¡TE HAN COMIDO!"** con tus puntos y tu cuerpo convertido en comida naranja |
-| 5 | Pulsa ESPACIO o haz clic | Empieza una partida nueva (mundo limpio, puntos a 0) |
+| 5 | Pulsa ESPACIO o ENTER (o el botón **VOLVER A JUGAR**) | Empieza una partida nueva (mundo limpio, puntos a 0) |
 | 6 | Mira los bordes de los círculos | Suaves, sin dientes de sierra |
 | 7 | Mira el cuerpo del gusano | Tiene **un solo grosor** de la cabeza a la cola (nada de cola fina) |
 | 8 | Espera a que aparezca un power-up (aro de color) y cómetelo | Efecto distinto según el color: IMÁN (cian) atrae la comida, ESCUDO (verde) y FANTASMA (lila) te hacen invulnerable, TURBO (rosa) corre gratis. El HUD abajo a la izquierda dice cuál tienes y cuánto dura |
 | 9 | Mira la esquina superior derecha | **Minimapa**: el jugador en el centro con aro blanco, los bots con su color, la comida en puntos pequeños y los restos en naranja |
-| 10 | Mira la parte de arriba, en el centro | **CLASIFICACIÓN** con los 5 gusanos más largos en orden, **TÚ** marcado con una estrella y el récord de la partida |
+| 10 | Mira **debajo del minimapa** (arriba a la derecha) | **CLASIFICACIÓN** con los 5 gusanos más largos, los números alineados a la derecha, **tu fila en negrita y verde** y el récord de la partida en el pie |
 | 11 | Cruza delante de un bot con turbo | Si el bot es de los valientes, acelerará para escaparte dejando su rastro de comida |
 | 12 | Come comida y coge un power-up | **Suena**: un "ñam" corto (que sube si comes en racha) y un arpegio al coger el power-up |
 | 13 | Mantén SHIFT y suéltalo | Zumbido de fondo mientras corres con turbo, se corta al soltar |
@@ -481,7 +491,13 @@ cd ~/MiJuegoIA/slither_2d && godot        # o la tarea "Godot: jugar"
 | 17 | Muere y mira la pantalla final | Tu apodo, puntos, resumen (partidas, comida, bots, tiempo), récord y el **top 5** de tus mejores partidas |
 | 18 | Escribe tu apodo en la pantalla final y pulsa Enter | Se guarda: la próxima vez que mueras ya sale ese nombre en la tabla |
 | 19 | Cómete 25 comidas (o baja las cifras en `pieles.gd`) | Al morir: "¡PALETA DESBLOQUEADA! Neón" y, al pulsar P, aparece la nueva |
-| 20 | Mira la consola | Sin errores ni avisos (el de MSAA 2D ya no debe aparecer) |
+| 20 | Pulsa **ESC** en mitad de una partida | Se abre la **pausa** encima del juego (velo translúcido): CONTINUAR, REINICIAR PARTIDA, música y silencio, MENÚ PRINCIPAL y SALIR. Con ESC se vuelve a la partida tal cual estaba |
+| 21 | Vuelve al menú y entra en **SELECCIÓN DE PIEL** | El gusano gira en la vista previa; al pulsar una paleta o un patrón se aplica al momento; las bloqueadas salen con 🔒 y su requisito |
+| 22 | Entra en **RÉCORDS Y LOGROS** | Estadísticas, top 5, los logros con barra de progreso, apodo editable y borrado con confirmación (pide pulsar dos veces) |
+| 23 | Entra en **OPCIONES** y mueve los deslizadores | El volumen cambia al momento (se oye en los clics del menú); pantalla completa y mostrar FPS se aplican y se recuerdan al reabrir |
+| 24 | Mira la esquina inferior derecha con "Mostrar FPS" activado | Aparece el contador de FPS mientras juegas |
+| 25 | Muere y mira el panel final | Todo dentro de un panel: título, puntos, resumen, mejores partidas y apodo, **sin nada amontonado** |
+| 26 | Mira la consola | Sin errores ni avisos (el de MSAA 2D ya no debe aparecer) |
 
 ### 9.4 Si algo falla
 

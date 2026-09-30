@@ -49,7 +49,6 @@ const VOCES := 6  ## Cuántos efectos pueden sonar a la vez sin cortarse.
 ## Índice del bus Master (el único que existe por defecto). Silenciar el juego es
 ## silenciar ese bus: afecta a efectos, música y a los zumbidos de los gusanos.
 const CANAL_MAESTRO := 0
-const RUTA_AJUSTES := "user://ajustes.cfg"
 
 @export var volumen_efectos: float = 0.0  ## dB que se suman a todos los efectos.
 @export var volumen_musica: float = -10.0  ## dB de la música en nivel normal.
@@ -160,6 +159,12 @@ static func generar_efecto(nombre: String) -> AudioStreamWAV:
 			return generar_arpegio(
 				PackedFloat32Array([523.25, 659.25, 783.99, 1046.5]), 0.07, Onda.TRIANGULAR, 0.4
 			)
+		"blip":
+			# Pasar por encima de un botón del menú.
+			return generar_barrido(900.0, 1200.0, 0.04, Onda.SENO, 0.22)
+		"clic":
+			# Elegir una opción del menú.
+			return generar_arpegio(PackedFloat32Array([660.0, 990.0]), 0.05, Onda.TRIANGULAR, 0.4)
 		_:
 			return generar_barrido(660.0, 660.0, 0.05)
 
@@ -326,21 +331,24 @@ func _aplicar_estado() -> void:
 
 
 func _cargar_ajustes() -> void:
-	var ajustes := ConfigFile.new()
-	if ajustes.load(RUTA_AJUSTES) != OK:
-		return  # Primera vez: valores por defecto (con sonido).
-	_silencio = bool(ajustes.get_value("audio", "silencio", false))
+	# Los ajustes viven en `ajustes.gd` (mismo archivo que usa la pantalla de
+	# Opciones), así que no hay dos sitios que puedan pisarse las claves.
+	var valores := Ajustes.cargar()
+	_silencio = bool(valores.get("silencio", false))
 	_nivel_musica = clampi(
-		int(ajustes.get_value("audio", "musica", MUSICA_NORMAL)), MUSICA_APAGADA, MUSICA_NORMAL
+		int(valores.get("musica", MUSICA_NORMAL)), MUSICA_APAGADA, MUSICA_NORMAL
 	)
+	volumen_efectos = float(valores.get("volumen_efectos", volumen_efectos))
+	volumen_musica = float(valores.get("volumen_musica", volumen_musica))
 
 
 func _guardar_ajustes() -> void:
-	var ajustes := ConfigFile.new()
-	ajustes.load(RUTA_AJUSTES)  # Se cargan primero para no borrar otras claves.
-	ajustes.set_value("audio", "silencio", _silencio)
-	ajustes.set_value("audio", "musica", _nivel_musica)
-	ajustes.save(RUTA_AJUSTES)
+	Ajustes.guardar({
+		"silencio": _silencio,
+		"musica": _nivel_musica,
+		"volumen_efectos": volumen_efectos,
+		"volumen_musica": volumen_musica,
+	})
 
 
 # ------------------------- ayudas de generación ----------------------------

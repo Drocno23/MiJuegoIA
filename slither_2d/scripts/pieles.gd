@@ -226,6 +226,17 @@ static func requisito(tipo: int, indice: int) -> String:
 	return "🔒 %s" % texto if texto != "" else ""
 
 
+## Qué desbloquea un logro: "Paleta Neón", "Patrón Anillos"... ("" si nada).
+static func recompensa(clave: String) -> String:
+	for i in cantidad_paletas():
+		if _clave_logro(Tipo.PALETA, i) == clave:
+			return "Paleta %s" % nombre_paleta(i)
+	for i in cantidad_patrones():
+		if _clave_logro(Tipo.PATRON, i) == clave:
+			return "Patrón %s" % nombre_patron(i)
+	return ""
+
+
 static func _clave_logro(tipo: int, indice: int) -> String:
 	if tipo == Tipo.PALETA:
 		var datos: Dictionary = paletas[clampi(indice, 0, paletas.size() - 1)]

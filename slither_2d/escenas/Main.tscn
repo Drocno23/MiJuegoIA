@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/fondo.gd" id="2_fondo"]
 [ext_resource type="Script" path="res://scripts/minimapa.gd" id="3_minimapa"]
 [ext_resource type="Script" path="res://scripts/sonido.gd" id="4_sonido"]
+[ext_resource type="PackedScene" path="res://escenas/Pausa.tscn" id="5_pausa"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -25,59 +26,75 @@ script = ExtResource("4_sonido")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
-[node name="Puntos" type="Label" parent="HUD"]
+[node name="ArribaIzquierda" type="VBoxContainer" parent="HUD"]
 offset_left = 20.0
-offset_top = 14.0
-offset_right = 940.0
-offset_bottom = 48.0
-theme_override_colors/font_color = Color(1, 1, 1, 0.92)
-theme_override_font_sizes/font_size = 22
+offset_top = 12.0
+offset_right = 640.0
+offset_bottom = 12.0
+grow_horizontal = 1
+theme_override_constants/separation = 2
+
+[node name="Puntos" type="Label" parent="HUD/ArribaIzquierda"]
+theme_override_colors/font_color = Color(1, 1, 1, 0.95)
+theme_override_font_sizes/font_size = 24
 text = "PUNTOS: 0"
 
-[node name="Record" type="Label" parent="HUD"]
-offset_left = 20.0
-offset_top = 44.0
-offset_right = 980.0
-offset_bottom = 68.0
+[node name="Record" type="Label" parent="HUD/ArribaIzquierda"]
 theme_override_colors/font_color = Color(0.85, 0.9, 1, 0.75)
-theme_override_font_sizes/font_size = 16
+theme_override_font_sizes/font_size = 15
 text = "Récord de la partida: 0"
 
-[node name="Clasificacion" type="Label" parent="HUD"]
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -190.0
-offset_top = 14.0
-offset_right = 190.0
-offset_bottom = 170.0
-grow_horizontal = 2
-theme_override_colors/font_color = Color(1, 1, 1, 0.85)
-theme_override_font_sizes/font_size = 18
-text = "CLASIFICACIÓN"
-horizontal_alignment = 1
+[node name="Piel" type="Label" parent="HUD/ArribaIzquierda"]
+theme_override_colors/font_color = Color(0.9, 0.85, 1, 0.85)
+theme_override_font_sizes/font_size = 14
+text = "Piel: Clásico · Liso   (P y O cambian)"
 
 [node name="Aviso" type="Label" parent="HUD"]
 anchor_left = 0.5
 anchor_right = 0.5
-offset_left = -420.0
-offset_top = 176.0
-offset_right = 420.0
-offset_bottom = 210.0
+offset_left = -340.0
+offset_top = 96.0
+offset_right = 340.0
+offset_bottom = 130.0
 grow_horizontal = 2
+mouse_filter = 2
 theme_override_colors/font_color = Color(1, 0.95, 0.6, 1)
 theme_override_font_sizes/font_size = 20
+text = ""
 horizontal_alignment = 1
 
-[node name="Minimapa" type="Control" parent="HUD"]
+[node name="ArribaDerecha" type="VBoxContainer" parent="HUD"]
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -232.0
-offset_top = 16.0
-offset_right = -22.0
-offset_bottom = 226.0
+offset_left = -242.0
+offset_top = 12.0
+offset_right = -16.0
+offset_bottom = 12.0
 grow_horizontal = 0
+theme_override_constants/separation = 10
+
+[node name="Minimapa" type="Control" parent="HUD/ArribaDerecha"]
+custom_minimum_size = Vector2(226, 214)
 mouse_filter = 2
 script = ExtResource("3_minimapa")
+
+[node name="Clasificacion" type="PanelContainer" parent="HUD/ArribaDerecha"]
+
+[node name="Caja" type="VBoxContainer" parent="HUD/ArribaDerecha/Clasificacion"]
+theme_override_constants/separation = 5
+
+[node name="Titulo" type="Label" parent="HUD/ArribaDerecha/Clasificacion/Caja"]
+theme_override_colors/font_color = Color(0.29, 0.89, 0.42, 1)
+theme_override_font_sizes/font_size = 16
+text = "CLASIFICACIÓN"
+
+[node name="Filas" type="VBoxContainer" parent="HUD/ArribaDerecha/Clasificacion/Caja"]
+theme_override_constants/separation = 3
+
+[node name="Pie" type="Label" parent="HUD/ArribaDerecha/Clasificacion/Caja"]
+theme_override_colors/font_color = Color(1, 0.83, 0.36, 0.9)
+theme_override_font_sizes/font_size = 13
+text = "Mejor marca: 0 puntos"
 
 [node name="Efectos" type="Label" parent="HUD"]
 anchor_top = 1.0
@@ -87,20 +104,9 @@ offset_top = -78.0
 offset_right = 620.0
 offset_bottom = -52.0
 grow_vertical = 0
+mouse_filter = 2
 theme_override_colors/font_color = Color(0.75, 1, 0.85, 1)
 theme_override_font_sizes/font_size = 18
-
-[node name="Piel" type="Label" parent="HUD"]
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 20.0
-offset_top = -100.0
-offset_right = 640.0
-offset_bottom = -78.0
-grow_vertical = 0
-theme_override_colors/font_color = Color(0.9, 0.85, 1, 0.85)
-theme_override_font_sizes/font_size = 16
-text = "Piel: Clásico · Liso   (P y O cambian)"
 
 [node name="TurboTexto" type="Label" parent="HUD"]
 anchor_top = 1.0
@@ -110,6 +116,7 @@ offset_top = -50.0
 offset_right = 320.0
 offset_bottom = -26.0
 grow_vertical = 0
+mouse_filter = 2
 theme_override_colors/font_color = Color(1, 1, 1, 0.8)
 theme_override_font_sizes/font_size = 16
 text = "TURBO — SHIFT o clic derecho"
@@ -142,9 +149,28 @@ offset_right = -20.0
 offset_bottom = -10.0
 grow_horizontal = 0
 grow_vertical = 0
+mouse_filter = 2
 theme_override_colors/font_color = Color(1, 1, 1, 0.6)
 theme_override_font_sizes/font_size = 15
 text = "M: silencio  ·  MÚSICA: ON (N)"
+horizontal_alignment = 2
+
+[node name="FPS" type="Label" parent="HUD"]
+visible = false
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -160.0
+offset_top = -64.0
+offset_right = -20.0
+offset_bottom = -38.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.8, 0.9, 1, 0.55)
+theme_override_font_sizes/font_size = 14
+text = "60 FPS"
 horizontal_alignment = 2
 
 [node name="Ayuda" type="Label" parent="HUD"]
@@ -158,9 +184,10 @@ offset_right = 480.0
 offset_bottom = -88.0
 grow_horizontal = 2
 grow_vertical = 0
+mouse_filter = 2
 theme_override_colors/font_color = Color(1, 1, 1, 0.75)
 theme_override_font_sizes/font_size = 17
-text = "Ratón: dirigir · SHIFT o clic derecho: TURBO · Cómete la comida amarilla, los power-ups (aro) y no choques con otro gusano"
+text = "Ratón: dirigir · SHIFT o clic derecho: TURBO · ESC: pausa"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -170,7 +197,6 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 2
 
 [node name="Velado" type="ColorRect" parent="HUD/Final"]
 anchor_right = 1.0
@@ -178,88 +204,81 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0.02, 0.03, 0.07, 0.65)
+color = Color(0.02, 0.03, 0.07, 0.7)
 
-[node name="Texto" type="Label" parent="HUD/Final"]
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -520.0
-offset_top = -280.0
-offset_right = 520.0
-offset_bottom = -40.0
+[node name="Centro" type="CenterContainer" parent="HUD/Final"]
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="HUD/Final/Centro"]
+custom_minimum_size = Vector2(840, 0)
+
+[node name="Caja" type="VBoxContainer" parent="HUD/Final/Centro/Panel"]
+theme_override_constants/separation = 8
+
+[node name="Titulo" type="Label" parent="HUD/Final/Centro/Panel/Caja"]
 theme_override_colors/font_color = Color(1, 0.85, 0.6, 1)
-theme_override_font_sizes/font_size = 32
+theme_override_font_sizes/font_size = 26
 text = "¡TE HAN COMIDO!"
 horizontal_alignment = 1
-vertical_alignment = 1
+autowrap_mode = 2
 
-[node name="Estadisticas" type="Label" parent="HUD/Final"]
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -520.0
-offset_top = -34.0
-offset_right = 520.0
-offset_bottom = 6.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_colors/font_color = Color(0.85, 0.92, 1, 0.9)
+[node name="Estadisticas" type="Label" parent="HUD/Final/Centro/Panel/Caja"]
+theme_override_colors/font_color = Color(0.85, 0.92, 1, 0.92)
 theme_override_font_sizes/font_size = 17
-text = "Partidas: 0  ·  Comida: 0  ·  Bots: 0  ·  Tiempo jugado: 0 s"
+text = "Puntos: 0  ·  Longitud: 0"
 horizontal_alignment = 1
-vertical_alignment = 1
+autowrap_mode = 2
 
-[node name="Mejores" type="Label" parent="HUD/Final"]
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -520.0
-offset_top = 14.0
-offset_right = 520.0
-offset_bottom = 170.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="Mejores" type="Label" parent="HUD/Final/Centro/Panel/Caja"]
 theme_override_colors/font_color = Color(0.75, 1, 0.9, 0.92)
-theme_override_font_sizes/font_size = 17
-text = "TUS MEJORES PARTIDAS"
+theme_override_font_sizes/font_size = 15
+text = "MEJORES PARTIDAS"
 horizontal_alignment = 1
-vertical_alignment = 1
+autowrap_mode = 2
 
-[node name="ApodoTexto" type="Label" parent="HUD/Final"]
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -300.0
-offset_top = 186.0
-offset_right = -20.0
-offset_bottom = 212.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="FilaApodo" type="HBoxContainer" parent="HUD/Final/Centro/Panel/Caja"]
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="ApodoTexto" type="Label" parent="HUD/Final/Centro/Panel/Caja/FilaApodo"]
 theme_override_colors/font_color = Color(1, 1, 1, 0.85)
 theme_override_font_sizes/font_size = 17
 text = "Tu apodo:"
-horizontal_alignment = 2
 vertical_alignment = 1
 
-[node name="Apodo" type="LineEdit" parent="HUD/Final"]
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -10.0
-offset_top = 184.0
-offset_right = 300.0
-offset_bottom = 214.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="Apodo" type="LineEdit" parent="HUD/Final/Centro/Panel/Caja/FilaApodo"]
+custom_minimum_size = Vector2(280, 36)
 theme_override_font_sizes/font_size = 17
+text = ""
 placeholder_text = "escribe tu apodo"
 max_length = 16
 alignment = 1
+
+[node name="AyudaFinal" type="Label" parent="HUD/Final/Centro/Panel/Caja"]
+theme_override_colors/font_color = Color(0.8, 0.88, 1, 0.75)
+theme_override_font_sizes/font_size = 15
+text = "SPACE o ENTER para volver a jugar  ·  ESC vuelve al menú principal"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="Botones" type="HBoxContainer" parent="HUD/Final/Centro/Panel/Caja"]
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="Reintentar" type="Button" parent="HUD/Final/Centro/Panel/Caja/Botones"]
+custom_minimum_size = Vector2(240, 46)
+text = "VOLVER A JUGAR"
+
+[node name="Menu" type="Button" parent="HUD/Final/Centro/Panel/Caja/Botones"]
+custom_minimum_size = Vector2(220, 46)
+text = "MENÚ PRINCIPAL"
+
+[node name="Salir" type="Button" parent="HUD/Final/Centro/Panel/Caja/Botones"]
+custom_minimum_size = Vector2(140, 46)
+text = "SALIR"
+
+[node name="Pausa" parent="HUD" instance=ExtResource("5_pausa")]
+visible = false

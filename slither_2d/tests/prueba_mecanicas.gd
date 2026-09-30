@@ -28,10 +28,14 @@ extends Node
 ##  12) comer dispara el audio (se enciende un reproductor del pool),
 ##  13) las pieles cambian colores y patrones,
 ##  14) los logros desbloquean paletas y patrones,
-##  15) el HUD nuevo (minimapa, clasificación, barra de turbo...) existe,
+##  15) el HUD (4 zonas: minimapa + clasificación, récord, piel, final...),
 ##  16) morir al chocar con el cuerpo de OTRO gusano,
 ##  17) los restos: una comida en cada posición del cuerpo del muerto,
-##  18) el récord, las estadísticas y el top 5 se guardan (idea 8D y 8E).
+##  18) el récord, las estadísticas y el top 5 se guardan (idea 8D y 8E),
+##  19) las 8 pantallas de menú existen y se pueden instanciar,
+##  20) los ajustes (`ajustes.gd`) se guardan, se releen y no pisan otras claves,
+##  21) el estilo, los efectos de menú y las recompensas de los logros,
+##  22) la pantalla de Opciones se monta con sus paneles, botones y deslizadores.
 
 const RUTA_MAIN := "res://escenas/Main.tscn"
 const RUTA_COMIDA := "res://escenas/Comida.tscn"
@@ -55,6 +59,20 @@ const SCRIPTS_DEL_JUEGO := [
 	"res://scripts/pieles.gd",
 	"res://scripts/records.gd",
 	"res://scripts/sonido.gd",
+	"res://scripts/estilo.gd",
+	"res://scripts/ajustes.gd",
+	"res://scripts/gestor.gd",
+	"res://scripts/pantalla.gd",
+	"res://scripts/fondo_menu.gd",
+	"res://scripts/vista_previa.gd",
+	"res://scripts/carga.gd",
+	"res://scripts/menu_principal.gd",
+	"res://scripts/seleccion.gd",
+	"res://scripts/pantalla_records.gd",
+	"res://scripts/opciones.gd",
+	"res://scripts/como_jugar.gd",
+	"res://scripts/creditos.gd",
+	"res://scripts/pausa.gd",
 	"res://scripts/main.gd",
 ]
 
@@ -414,25 +432,44 @@ func _ejecutar() -> void:
 		]
 	)
 
-	# -------------------------------------------- 15) HUD nuevo
+	# -------------------------------------------- 15) HUD en 4 zonas
 	var faltan_hud := PackedStringArray()
 	for ruta_hud in [
-		"HUD/Minimapa", "HUD/Clasificacion", "HUD/TurboFondo/Relleno", "HUD/Efectos", "HUD/Audio",
-		"HUD/Record", "HUD/Piel", "HUD/Aviso",
-		"HUD/Final/Estadisticas", "HUD/Final/Mejores", "HUD/Final/Apodo",
+		"HUD/ArribaIzquierda/Puntos", "HUD/ArribaIzquierda/Record", "HUD/ArribaIzquierda/Piel",
+		"HUD/Aviso",
+		"HUD/ArribaDerecha/Minimapa", "HUD/ArribaDerecha/Clasificacion/Caja/Titulo",
+		"HUD/ArribaDerecha/Clasificacion/Caja/Filas", "HUD/ArribaDerecha/Clasificacion/Caja/Pie",
+		"HUD/Efectos", "HUD/TurboTexto", "HUD/TurboFondo/Relleno", "HUD/Audio", "HUD/FPS",
+		"HUD/Ayuda",
+		"HUD/Final/Centro/Panel/Caja/Titulo", "HUD/Final/Centro/Panel/Caja/Estadisticas",
+		"HUD/Final/Centro/Panel/Caja/Mejores", "HUD/Final/Centro/Panel/Caja/FilaApodo/Apodo",
+		"HUD/Final/Centro/Panel/Caja/Botones/Reintentar",
+		"HUD/Final/Centro/Panel/Caja/Botones/Menu",
+		"HUD/Final/Centro/Panel/Caja/Botones/Salir",
+		"HUD/Pausa",
 	]:
 		if main.get_node_or_null(ruta_hud) == null:
 			faltan_hud.append(ruta_hud)
-	var clasificacion := main.get_node_or_null("HUD/Clasificacion") as Label
-	var clasificacion_ok := false
-	if clasificacion != null:
-		clasificacion_ok = clasificacion.text.contains("CLASIFICACIÓN")
+	# El marcador son filas de verdad (una por gusano), no un bloque de texto.
+	var filas := main.get_node_or_null("HUD/ArribaDerecha/Clasificacion/Caja/Filas") as VBoxContainer
+	var filas_ok := filas != null and filas.get_child_count() == main.MAX_FILAS_CLASIFICACION
+	var visibles := 0
+	if filas != null:
+		for fila in filas.get_children():
+			if (fila as Control).visible:
+				visibles += 1
+	var titulo_clasificacion := main.get_node_or_null(
+		"HUD/ArribaDerecha/Clasificacion/Caja/Titulo"
+	) as Label
+	var clasificacion_ok := titulo_clasificacion != null \
+		and titulo_clasificacion.text.contains("CLASIFICACIÓN")
 	_comprobar(
-		"15) HUD: minimapa, clasificación, récord, piel y apodo",
-		faltan_hud.is_empty() and clasificacion_ok,
-		"nodos del HUD: %s | clasificación: %s" % [
+		"15) HUD en 4 zonas: marcador debajo del minimapa y final con contenedores",
+		faltan_hud.is_empty() and clasificacion_ok and filas_ok and visibles >= 1,
+		"nodos del HUD: %s | clasificación: %s | filas: %d (visibles: %d)" % [
 			"todos" if faltan_hud.is_empty() else "faltan " + ", ".join(faltan_hud),
-			"ok" if clasificacion_ok else "vacía"
+			"ok" if clasificacion_ok else "vacía",
+			filas.get_child_count() if filas != null else -1, visibles,
 		]
 	)
 
@@ -536,7 +573,118 @@ func _ejecutar() -> void:
 		]
 	)
 
+	# ------------------------------- 19) Las pantallas de menú existen
+	var escenas_rotas := PackedStringArray()
+	for ruta in [
+		Gestor.CARGA, Gestor.MENU, Gestor.SELECCION, Gestor.RECORDS, Gestor.OPCIONES,
+		Gestor.COMO_JUGAR, Gestor.CREDITOS, Gestor.PAUSA,
+	]:
+		var paquete := load(ruta) as PackedScene
+		if paquete == null:
+			escenas_rotas.append(str(ruta))
+			continue
+		# Instanciar NO ejecuta _ready(): solo comprueba que la escena se arma.
+		var copia := paquete.instantiate()
+		if copia == null:
+			escenas_rotas.append(str(ruta))
+		else:
+			copia.free()
+	_comprobar(
+		"19) Las 8 pantallas de menú existen y se instancian",
+		escenas_rotas.is_empty() and Gestor.VERSION != "",
+		"escenas: %d | versión: %s%s" % [
+			8 - escenas_rotas.size(), Gestor.VERSION,
+			"" if escenas_rotas.is_empty() else " | FALLAN: " + ", ".join(escenas_rotas),
+		]
+	)
+
+	# ------------------------------- 20) Ajustes: guardar, releer, no pisar claves
+	var ruta_ajustes_real := Ajustes.ruta
+	Ajustes.ruta = "user://ajustes_prueba.cfg"
+	Ajustes.guardar({"volumen_efectos": -12.0, "mostrar_fps": true, "musica": 1})
+	var leidos := Ajustes.cargar()
+	var ajustes_ok := int(leidos.get("musica", -1)) == 1 \
+		and is_equal_approx(float(leidos.get("volumen_efectos", 0.0)), -12.0) \
+		and bool(leidos.get("mostrar_fps", false))
+	# La segunda escritura no debe borrar lo anterior (es el fallo clásico).
+	Ajustes.guardar({"silencio": true})
+	var leidos_2 := Ajustes.cargar()
+	var sin_pisar := int(leidos_2.get("musica", -1)) == 1 \
+		and is_equal_approx(float(leidos_2.get("volumen_efectos", 0.0)), -12.0) \
+		and bool(leidos_2.get("mostrar_fps", false)) \
+		and bool(leidos_2.get("silencio", false))
+	Ajustes.ruta = ruta_ajustes_real
+	var sobrante := ProjectSettings.globalize_path("user://ajustes_prueba.cfg")
+	if FileAccess.file_exists(sobrante):
+		DirAccess.remove_absolute(sobrante)
+	_comprobar(
+		"20) Los ajustes se guardan, se releen y no se pisan entre secciones",
+		ajustes_ok and sin_pisar,
+		"música: %d | efectos: %.0f dB | FPS: %s | silencio tras el 2º guardado: %s" % [
+			int(leidos_2.get("musica", -1)),
+			float(leidos_2.get("volumen_efectos", 0.0)),
+			"on" if bool(leidos_2.get("mostrar_fps", false)) else "off",
+			"sí" if bool(leidos_2.get("silencio", false)) else "no",
+		]
+	)
+
+	# ------------------------------- 21) Estilo, sonidos de menú y recompensas
+	var blip := Sonido.generar_efecto("blip")
+	var clic := Sonido.generar_efecto("clic")
+	_comprobar(
+		"21) Estilo, efectos de menú y recompensa de los logros",
+		Estilo.fuente() != null and Estilo.fuente_negrita() != null
+			and Estilo.caja(Estilo.PANEL) != null
+			and blip != null and clic != null and blip.data.size() > 0
+			and Sonido.nombre_nivel_musica(Sonido.MUSICA_APAGADA).to_lower().contains("off")
+			and Pieles.recompensa("comida_25") != "",
+		"efectos: blip %d muestras, clic %d | música 0 = %s | comida_25 desbloquea: %s" % [
+			blip.data.size() if blip != null else -1,
+			clic.data.size() if clic != null else -1,
+			Sonido.nombre_nivel_musica(Sonido.MUSICA_APAGADA),
+			Pieles.recompensa("comida_25"),
+		]
+	)
+
+	# ------------------------------- 22) Una pantalla de menú se monta entera
+	var ajustes_reales := Ajustes.ruta
+	Ajustes.ruta = "user://ajustes_prueba.cfg"
+	var opciones := await _montar_pantalla(Gestor.OPCIONES)
+	var paneles := 0
+	var botones := 0
+	var deslizadores := 0
+	if opciones != null:
+		paneles = opciones.find_children("*", "PanelContainer", true, false).size()
+		botones = opciones.find_children("*", "Button", true, false).size()
+		deslizadores = opciones.find_children("*", "HSlider", true, false).size()
+	_comprobar(
+		"22) La pantalla de Opciones se monta (paneles, botones y deslizadores)",
+		opciones != null and paneles >= 3 and botones >= 5 and deslizadores == 2,
+		"paneles: %d | botones: %d | deslizadores: %d" % [paneles, botones, deslizadores]
+	)
+	if opciones != null:
+		opciones.queue_free()
+		await get_tree().process_frame
+	Ajustes.ruta = ajustes_reales
+	var copia_ajustes := ProjectSettings.globalize_path("user://ajustes_prueba.cfg")
+	if FileAccess.file_exists(copia_ajustes):
+		DirAccess.remove_absolute(copia_ajustes)
+
 	await _limpiar(main)
+
+
+## Monta una pantalla de menú de verdad (con su `_ready`) y la devuelve, para
+## poder contar sus piezas. Se libera fuera, en la comprobación.
+func _montar_pantalla(ruta: String) -> Control:
+	var paquete := load(ruta) as PackedScene
+	if paquete == null:
+		return null
+	var pantalla := paquete.instantiate() as Control
+	if pantalla == null:
+		return null
+	add_child(pantalla)
+	await get_tree().process_frame
+	return pantalla
 
 
 ## Libera el mundo antes de terminar: así Godot no avisa de recursos

@@ -7,8 +7,8 @@ config_version=5
 [application]
 
 config/name="Slither 2D - Prototipo"
-config/description="Prototipo tipo slither.io: gusano que sigue al ratón, cuerpo de segmentos, comida, muerte por colisión y restos de comida."
-run/main_scene="res://escenas/Main.tscn"
+config/description="Prototipo tipo slither.io: gusano que sigue al ratón, cuerpo de segmentos, comida, power-ups, muerte por colisión, restos de comida e interfaz completa (carga, menú, pieles, récords, opciones y pausa)."
+run/main_scene="res://escenas/Carga.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
 
