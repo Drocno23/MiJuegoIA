@@ -95,14 +95,43 @@ cmd_estado() {
 }
 
 cmd_sync() {
+	local con_cambios="${1:-}"
 	paso "Sincronizando con GitHub (git pull --rebase)"
+
 	if [ -n "$(git status --porcelain)" ]; then
-		aviso "Tienes cambios sin guardar. Guárdalos primero para no mezclar nada:"
-		echo "      git add -A && git commit -m \"lo que hice\""
-		echo "      (o descarta cambios: git restore <archivo>)"
-		exit 1
+		echo "  Cambios pendientes en el proyecto:"
+		git status --short | sed 's/^/      /'
+		echo ""
+
+		if [ "$con_cambios" != "--con-cambios" ]; then
+			aviso "No se puede hacer pull --rebase con cambios sin marcar. Elige UNA opción:"
+			echo "      A) ${NEGRITA}Automático${FIN} (los aparta y los devuelve después):"
+			echo "           ./herramientas.sh sync --con-cambios"
+			echo "      B) ${NEGRITA}Guardarlos en un commit${FIN} (si son tuyos o son los .uid de Godot):"
+			echo "           git add -A && git commit -m \"mis cambios\"   &&   ./herramientas.sh sync"
+			echo "      C) ${NEGRITA}Descartarlos${FIN} (¡se pierden! sirve si son los re-guardados de Godot):"
+			echo "           git checkout -- . && git clean -fd"
+			exit 1
+		fi
+
+		aviso "Apartando tus cambios con 'git stash -u' (volverán después del pull)"
+		git stash -u
+		if ! git pull --rebase; then
+			error "El pull falló. Tus cambios están a salvo: recupéralos con  git stash pop"
+			exit 1
+		fi
+		if ! git stash pop; then
+			error "Conflicto al devolver tus cambios (git stash pop)."
+			echo "  - Si son los re-guardados de Godot (.tscn, project.godot):" >&2
+			echo "      git checkout -- . && git stash drop" >&2
+			echo "  - Si eran cambios tuyos: no toques nada más y pásame la salida de 'git status'." >&2
+			exit 1
+		fi
+		ok "Cambios apartados y devueltos sin conflicto"
+	else
+		git pull --rebase
 	fi
-	git pull --rebase
+
 	ok "Al día. Últimos commits:"
 	git --no-pager log --oneline -5 | sed 's/^/      /'
 }
@@ -168,7 +197,7 @@ cmd_subir() {
 
 cmd_todo() {
 	echo "${NEGRITA}=== Sincronizar + importar + probar ===${FIN}"
-	cmd_sync
+	cmd_sync "${1:-}"
 	cmd_importar
 	cmd_probar
 	echo ""
@@ -181,6 +210,9 @@ ${NEGRITA}herramientas.sh${FIN} — atajos para slither_2d (terminal de VS Code)
 
   ./herramientas.sh todo       Sincroniza + importa + prueba (empieza por aquí)
   ./herramientas.sh sync       Traer lo último de GitHub (git pull --rebase)
+  ./herramientas.sh sync --con-cambios
+                               Lo mismo, pero apartando tus cambios sin guardar
+                               (git stash -u) y devolviéndolos después
   ./herramientas.sh probar     Prueba automática de las 7 mecánicas (~2 s)
   ./herramientas.sh importar   Genera .godot/ y los .uid sin abrir ventana
   ./herramientas.sh jugar      Ejecuta el juego
@@ -197,13 +229,13 @@ EOF
 # ------------------------------- entrada -------------------------------------
 COMANDO="${1:-ayuda}"
 case "$COMANDO" in
-	todo)     cmd_todo ;;
-	sync)     cmd_sync ;;
+	todo)     shift || true; cmd_todo "${1:-}" ;;
 	probar)   cmd_probar ;;
 	importar) cmd_importar ;;
 	jugar)    cmd_jugar ;;
 	editar)   cmd_editar ;;
 	estado)   cmd_estado ;;
+	sync)     shift || true; cmd_sync "${1:-}" ;;
 	subir)    shift || true; cmd_subir "${1:-}" ;;
 	ayuda|-h|--help) cmd_ayuda ;;
 	*) error "Comando desconocido: $COMANDO"; echo ""; cmd_ayuda; exit 1 ;;
