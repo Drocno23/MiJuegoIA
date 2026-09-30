@@ -115,12 +115,12 @@ cmd_sync() {
 		fi
 
 		aviso "Apartando tus cambios con 'git stash -u' (volverán después del pull)"
-		git stash -u
+		git stash -u --quiet
 		if ! git pull --rebase; then
 			error "El pull falló. Tus cambios están a salvo: recupéralos con  git stash pop"
 			exit 1
 		fi
-		if ! git stash pop; then
+		if ! git stash pop --quiet; then
 			error "Conflicto al devolver tus cambios (git stash pop)."
 			echo "  - Si son los re-guardados de Godot (.tscn, project.godot):" >&2
 			echo "      git checkout -- . && git stash drop" >&2

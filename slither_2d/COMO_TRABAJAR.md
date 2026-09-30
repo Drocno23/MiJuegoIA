@@ -181,6 +181,13 @@ git status --short --branch
 git add -A && git commit -m "feat: agrego power-up de velocidad" && git push
 ```
 
+Si el paso 1 te da `Tienes cambios sin marcar` (típico tras abrir el proyecto en
+Godot: aparecen `.uid` y re-guarda escenas), tienes una salida de un comando:
+
+```bash
+./herramientas.sh sync --con-cambios    # aparta tus cambios, hace el pull y los devuelve
+```
+
 En VS Code estos pasos están como tareas (`Git: ...`), así no recuerdas los
 argumentos. Si estoy yo (el agente) subiendo cambios a esta rama, tú solo
 necesitas el paso 1: `git pull --rebase`.
@@ -257,6 +264,8 @@ está recargado**. Y si cambias una escena en Godot, se guarda sola al pasar a V
 | Warnings de `inotify` / "too many open files" / Godot vigilando demasiados archivos | Sube el límite de Kali (y reinicia sesión): `echo fs.inotify.max_user_watches=524288 \| sudo tee -a /etc/sysctl.conf && sudo sysctl -p`. También ayuda que `.godot/` esté excluida del vigilante (ya está en `settings.json`). |
 | El juego no abre ventana (o sale en negro) | Comprueba driver/pantalla: `godot --rendering-driver opengl3` y, si usas Wayland, `godot --display-driver wayland` (con X11, `--display-driver x11`). El proyecto ya usa *GL Compatibility*, el más compatible. |
 | `git: dubious ownership` o permisos raros | Abriste VS Code como root. Solución en §2 (`chown` + `safe.directory`). |
+| `error: no se puede pull con rebase: Tienes cambios sin marcar` | Godot ha re-guardado archivos (`.uid`, `.tscn`, `project.godot`) y Git no deja hacer el pull. Soluciones: `./herramientas.sh sync --con-cambios` (los aparta y los devuelve automáticamente), o guardarlos con `git add -A && git commit -m "chore: archivos de Godot"`, o descartarlos con `git checkout -- . && git clean -fd`. |
+| `bash: [herramientas.sh](http://herramientas.sh): No existe el fichero o el directorio` | No es un error de Linux: el nombre del archivo se convirtió en un **enlace de chat** al copiarlo. Escribe el comando a mano, sin corchetes ni paréntesis: `./herramientas.sh todo` |
 | `error: failed to push some refs` | Te falta `git pull --rebase` antes de subir. |
 | Aparecen `.uid` o `.godot/` nuevos en `git status` | Los `.uid` se commitean; `.godot/` no debería aparecer (si aparece, revisa el `.gitignore`). |
 | Tras un `pull` Godot se queja de recursos | Tarea `Godot: importar recursos (--import)`. |
@@ -317,15 +326,23 @@ Todo lo de esta sección en **un solo comando**, desde la terminal integrada de
 VS Code:
 
 ```bash
-bash herramientas.sh todo        # sincroniza + importa + prueba (código 0 = todo bien)
+./herramientas.sh todo           # sincroniza + importa + prueba (código 0 = todo bien)
 ```
+
+> 📍 **Funciona desde cualquier carpeta del repo**: hay un lanzador en la raíz
+> (`MiJuegoIA/herramientas.sh`) que llama al de `slither_2d/`. Así el mismo
+> comando vale estés en `~/Proyectos/MiJuegoIA` o en `~/Proyectos/MiJuegoIA/slither_2d`.
+> Si `./` te da pereza, `bash herramientas.sh todo` hace lo mismo (ojo: sin
+> corchetes; si al copiar de un chat te aparece `[herramientas.sh](...)`, es un
+> enlace y bash no lo entiende).
 
 Y el resto de atajos:
 
 | Comando | Qué hace |
 |---|---|
 | `./herramientas.sh todo` | `git pull --rebase` + `--import` + prueba de las 7 mecánicas |
-| `./herramientas.sh sync` | Traer lo último de GitHub |
+| `./herramientas.sh sync` | Traer lo último de GitHub (se niega si hay cambios sin guardar y te da 3 opciones) |
+| `./herramientas.sh sync --con-cambios` | Lo mismo, pero apartando tus cambios con `git stash -u` y devolviéndolos después (perfecto para los `.uid` y los re-guardados de Godot) |
 | `./herramientas.sh probar` | Prueba automática (también a mano: `godot --headless res://tests/PruebaMecanicas.tscn`) |
 | `./herramientas.sh importar` | Genera `.godot/` y los `.uid` sin abrir ventana |
 | `./herramientas.sh jugar` | Ejecuta el juego |

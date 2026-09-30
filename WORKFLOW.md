@@ -20,6 +20,17 @@ en el workspace y, **cuando encuentra varios, elige el de la ruta más corta**
 raíz con los dos proyectos dentro, el autocompletado y los `res://` apuntarán al
 de la raíz. Abriendo `slither_2d` no hay ambigüedad.
 
+## ⚡ Atajo: `./herramientas.sh` (para el prototipo slither_2d)
+
+```bash
+./herramientas.sh todo      # sincroniza + importa recursos + prueba las mecánicas
+./herramientas.sh sync --con-cambios   # trae lo último apartando tus cambios sin guardar
+./herramientas.sh           # ayuda con todos los atajos
+```
+
+Funciona igual desde la raíz del repositorio o desde `slither_2d/`
+(la raíz tiene un lanzador que llama al script real).
+
 ## 🚀 Flujo diario (5 comandos)
 
 ```bash

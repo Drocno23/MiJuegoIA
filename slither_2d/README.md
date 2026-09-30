@@ -37,6 +37,7 @@ Prueba automática de las 7 mecánicas (sin abrir ventana, 2 segundos):
 ```bash
 cd slither_2d
 bash herramientas.sh todo      # sincroniza + importa + prueba  (atajo recomendado)
+# (equivale a ./herramientas.sh todo; también existe un lanzador en la raíz del repo)
 
 # o solo la prueba, a mano:
 godot --headless res://tests/PruebaMecanicas.tscn   # código de salida: 0 = todo bien
